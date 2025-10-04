@@ -25,6 +25,7 @@ local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
 local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
+local sleepConnections = {}
 
 --- // FUNCTIONS
 
@@ -160,10 +161,19 @@ local function updateSleepStates()
 end
 
 local function initPlayer(player)
-	-- This will memory leak but I don't currently care
-	player:GetAttributeChangedSignal("Sleeping"):Connect(function()
+	local sleepAttChanged
+	sleepAttChanged = player:GetAttributeChangedSignal("Sleeping"):Connect(function()
 		playSleepAnim(player)
 	end)
+	sleepConnections[player.UserId] = sleepAttChanged
+end
+
+local function playerRemoving(player)
+	local userId = player.UserId
+	if sleepConnections[userId] then
+		sleepConnections[userId]:Disconnect()
+		sleepConnections[userId] = nil
+	end
 end
 
 --- // MAIN
@@ -175,4 +185,5 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerAdded:Connect(initPlayer)
+Players.PlayerRemoving:Connect(playerRemoving)
 RunService.Heartbeat:Connect(updateSleepStates)

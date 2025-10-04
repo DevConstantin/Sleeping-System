@@ -71,7 +71,7 @@ end
 --------------------------------------- TWEEN FUNCTIONS ---------------------------------------
 -----------------------------------------------------------------------------------------------
 
-local function initializePositions()
+local function initializePositions() 
     originalPositions.TweenFrame1 = TweenFrame1.Position
     openButtonOriginalPosition = openButton.Position
 
