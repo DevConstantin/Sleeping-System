@@ -170,9 +170,6 @@ local function closeColorWheel()
 end
 
 local function openSleepUI()
-	if not localPlayer:GetAttribute("Sleeping") then 
-		return
-	end
 	playUISound(clickSound)
 	tweenFrameIn(TweenFrame1, "TweenFrame1")
 	tweenOpenButtonOut()
@@ -259,10 +256,15 @@ positionRight.MouseButton1Click:Connect(function()
 	changeSleepingPosition("Right")
 end)
 
-confirmColor.MouseButton1Click:Connect(confirmBlanketColor)
+openButton.MouseButton1Click:Connect(function()
+	if localPlayer:GetAttribute("Sleeping") then
+		openSleepUI()
+	end
+end)
+
 closeButton.MouseButton1Click:Connect(closeSleepUI)
-openButton.MouseButton1Click:Connect(openSleepUI)
 localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(onSleepingChanged)
+confirmColor.MouseButton1Click:Connect(confirmBlanketColor)
 
 -- Initialization
 initializePositions()
