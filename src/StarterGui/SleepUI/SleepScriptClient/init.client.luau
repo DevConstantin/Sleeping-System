@@ -25,7 +25,6 @@ local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
 local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
-local sleepConnections = {}
 
 --- // FUNCTIONS
 
@@ -64,6 +63,7 @@ local function playRandomSnoringSound(head: BasePart)
 	end)
 end
 
+-- Emit sleep FX from a character's head
 local function updateSleepFX(head: BasePart, sleeping: boolean)
 	if not head then
 		return
@@ -96,24 +96,15 @@ end
 
 -- This will play a sleep animation on the player character, if they are sleeping
 -- Doesn't currently account for desired sleeping side
-local function playSleepAnim(player)
-	local sleeping = player:GetAttribute("Sleeping")
-
-	BlanketService.updateBlanket(player)
-
+local function playOwnSleepAnimation()
 	-- Since this code is run within the RunService loop, this makes sure it is only run on your own character
-	if player ~= localPlayer then
-		return
-	end
-
-	local char = player.Character
+	-- The animation code below is NOT needed for other players. It is ONLY run for the client themselves
+	local sleeping = localPlayer:GetAttribute("Sleeping")
+	local char = localPlayer.Character
 	if not char then
 		return
 	end
 	local animator = char:WaitForChild("Humanoid"):WaitForChild("Animator")
-
-	print(player, sleeping and "is sleeping!" or "is NOT sleeping.")
-
 	if sleeping then
 		if not sleepAnimTrack then
 			local sleepAnimation = Instance.new("Animation")
@@ -126,6 +117,9 @@ local function playSleepAnim(player)
 	end
 end
 
+-- This function will update blankets, emit snores, and sleep FX for all nearby players
+-- Snores, sleep FX, & proximity range can be configured
+-- No animation stuff in here. The client handles their own animations
 local function updateSleepStates()
 	-- Makes the code run at an interval
 	if (os.clock() - t) < interval then
@@ -148,6 +142,7 @@ local function updateSleepStates()
 		end
 
 		local isSleeping = player:GetAttribute("Sleeping")
+
 		BlanketService.updateBlanket(player)
 
 		if USE_SNORES and isSleeping and shouldSnore(player.UserId) then
@@ -160,30 +155,6 @@ local function updateSleepStates()
 	end
 end
 
-local function initPlayer(player)
-	local sleepAttChanged
-	sleepAttChanged = player:GetAttributeChangedSignal("Sleeping"):Connect(function()
-		playSleepAnim(player)
-	end)
-	sleepConnections[player.UserId] = sleepAttChanged
-end
-
-local function playerRemoving(player)
-	local userId = player.UserId
-	if sleepConnections[userId] then
-		sleepConnections[userId]:Disconnect()
-		sleepConnections[userId] = nil
-	end
-end
-
 --- // MAIN
-
-initPlayer(localPlayer)
-
-for _, player in ipairs(Players:GetPlayers()) do
-	initPlayer(player)
-end
-
-Players.PlayerAdded:Connect(initPlayer)
-Players.PlayerRemoving:Connect(playerRemoving)
+localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(playOwnSleepAnimation)
 RunService.Heartbeat:Connect(updateSleepStates)
