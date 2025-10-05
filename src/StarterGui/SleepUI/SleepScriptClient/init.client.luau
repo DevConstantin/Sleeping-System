@@ -32,6 +32,7 @@ local SLEEP_ANIMATIONS = {
 local sleepAnimTracks = {} -- Changed to store multiple tracks per player
 local t, interval = 0, 3
 local addingFX = {}
+local sleepConnections = {}
 
 --- // FUNCTIONS
 
@@ -208,39 +209,9 @@ local function updateSleepStates()
 end
 
 local function initPlayer(player)
-	-- Initialize the animation tracks table for this player
-	sleepAnimTracks[player] = {}
-	
-	-- Listen for sleeping state changes on the player
-	player:GetAttributeChangedSignal("Sleeping"):Connect(function()
+	local sleepAttChanged
+	sleepAttChanged = player:GetAttributeChangedSignal("Sleeping"):Connect(function()
 		playSleepAnim(player)
-	end)
-	
-	-- Function to set up character-specific listeners
-	local function onCharacterAdded(character)
-		-- Listen for sleeping side changes on the CHARACTER (not player)
-		character:GetAttributeChangedSignal("SleepingSide"):Connect(function()
-			-- Only update if currently sleeping
-			if player:GetAttribute("Sleeping") then
-				print(player.Name, "SleepingSide changed to", character:GetAttribute("SleepingSide"))
-				playSleepAnim(player)
-			end
-		end)
-	end
-	
-	-- Set up for current character if it exists
-	if player.Character then
-		onCharacterAdded(player.Character)
-	end
-	
-	-- Set up for future characters (respawns)
-	player.CharacterAdded:Connect(onCharacterAdded)
-	
-	-- Clean up when player is removed
-	player.AncestryChanged:Connect(function()
-		if not player:IsDescendantOf(game) then
-			sleepAnimTracks[player] = nil
-		end
 	end)
 end
 
@@ -253,4 +224,5 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerAdded:Connect(initPlayer)
+Players.PlayerRemoving:Connect(playerRemoving)
 RunService.Heartbeat:Connect(updateSleepStates)
