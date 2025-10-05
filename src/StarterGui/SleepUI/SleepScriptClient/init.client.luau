@@ -8,7 +8,7 @@ local RunService = game:GetService("RunService")
 
 --- // OBJECTS
 local BlanketService = require(script.Parent.SleepBlanketService)
-
+local AnimationService = require(script.Parent.SleepAnimationService)
 local localPlayer = Players.LocalPlayer
 
 local sleepFXTemplate = script.SleepFX
@@ -94,27 +94,12 @@ local function updateSleepFX(head: BasePart, sleeping: boolean)
 	end)
 end
 
--- This will play a sleep animation on the player character, if they are sleeping
--- Doesn't currently account for desired sleeping side
-local function playOwnSleepAnimation()
-	-- Since this code is run within the RunService loop, this makes sure it is only run on your own character
-	-- The animation code below is NOT needed for other players. It is ONLY run for the client themselves
-	local sleeping = localPlayer:GetAttribute("Sleeping")
-	local char = localPlayer.Character
-	if not char then
-		return
-	end
-	local animator = char:WaitForChild("Humanoid"):WaitForChild("Animator")
-	if sleeping then
-		if not sleepAnimTrack then
-			local sleepAnimation = Instance.new("Animation")
-			sleepAnimation.AnimationId = "rbxassetid://77400291260696"
-			sleepAnimTrack = animator:LoadAnimation(sleepAnimation)
+local function onCharacterAdded(char)
+	char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
+		if localPlayer:GetAttribute("Sleeping") then
+			AnimationService.updateAnimation(localPlayer)
 		end
-		sleepAnimTrack:Play()
-	elseif not sleeping and sleepAnimTrack then
-		sleepAnimTrack:Stop()
-	end
+	end)
 end
 
 -- This function will update blankets, emit snores, and sleep FX for all nearby players
@@ -156,5 +141,13 @@ local function updateSleepStates()
 end
 
 --- // MAIN
-localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(playOwnSleepAnimation)
+localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(function()
+	AnimationService.updateAnimation(localPlayer)
+end)
+
+localPlayer.CharacterAdded:Connect(onCharacterAdded)
+if localPlayer.Character then
+	onCharacterAdded(localPlayer.Character)
+end
+
 RunService.Heartbeat:Connect(updateSleepStates)
