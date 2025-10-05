@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 --- // OBJECTS
-local BlanketService = require(game.ReplicatedStorage.RSModules.SleepBlanketService)
+local BlanketService = require(script.Parent.SleepBlanketService)
 
 local localPlayer = Players.LocalPlayer
 
@@ -21,17 +21,11 @@ local USE_FX = sleepConfig:GetAttribute("ZZZ_Effect")
 local DEFAULT_SNORE_THRESHOLD = sleepConfig:GetAttribute("SnoreOdds")
 local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
 
---- // SLEEP ANIMATION IDS
-local SLEEP_ANIMATIONS = {
-	Right = "rbxassetid://72820421782942",
-	Back = "rbxassetid://131934871886139",
-	Left = "rbxassetid://133771894405396"
-}
-
 --- // VARIABLES
-local sleepAnimTracks = {} -- Changed to store multiple tracks per player
+local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
+local sleepConnections = {}
 
 --- // FUNCTIONS
 
@@ -101,17 +95,9 @@ local function updateSleepFX(head: BasePart, sleeping: boolean)
 end
 
 -- This will play a sleep animation on the player character, if they are sleeping
--- Now accounts for desired sleeping side
+-- Doesn't currently account for desired sleeping side
 local function playSleepAnim(player)
 	local sleeping = player:GetAttribute("Sleeping")
-	
-	-- Get sleeping side from character
-	local char = player.Character
-	if not char then
-		return
-	end
-	
-	local sleepingSide = char:GetAttribute("SleepingSide") or "Back" -- Default to back if not specified
 
 	BlanketService.updateBlanket(player)
 
@@ -120,45 +106,23 @@ local function playSleepAnim(player)
 		return
 	end
 
+	local char = player.Character
+	if not char then
+		return
+	end
 	local animator = char:WaitForChild("Humanoid"):WaitForChild("Animator")
 
-	print(player.Name, sleeping and ("is sleeping on " .. sleepingSide .. " side!") or "is NOT sleeping.")
-
-	-- Initialize player's anim tracks table if it doesn't exist
-	if not sleepAnimTracks[player] then
-		sleepAnimTracks[player] = {}
-	end
+	print(player, sleeping and "is sleeping!" or "is NOT sleeping.")
 
 	if sleeping then
-		-- Stop any currently playing sleep animation
-		for side, track in pairs(sleepAnimTracks[player]) do
-			if track.IsPlaying then
-				track:Stop()
-			end
+		if not sleepAnimTrack then
+			local sleepAnimation = Instance.new("Animation")
+			sleepAnimation.AnimationId = "rbxassetid://77400291260696"
+			sleepAnimTrack = animator:LoadAnimation(sleepAnimation)
 		end
-
-		-- Get or create the animation track for the current side
-		if not sleepAnimTracks[player][sleepingSide] then
-			local animationId = SLEEP_ANIMATIONS[sleepingSide]
-			if animationId then
-				local sleepAnimation = Instance.new("Animation")
-				sleepAnimation.AnimationId = animationId
-				sleepAnimTracks[player][sleepingSide] = animator:LoadAnimation(sleepAnimation)
-			else
-				warn("Invalid sleeping side: " .. tostring(sleepingSide))
-				return
-			end
-		end
-
-		-- Play the animation for the current side
-		sleepAnimTracks[player][sleepingSide]:Play()
-	elseif not sleeping then
-		-- Stop all sleep animations when waking up
-		for side, track in pairs(sleepAnimTracks[player]) do
-			if track.IsPlaying then
-				track:Stop()
-			end
-		end
+		sleepAnimTrack:Play()
+	elseif not sleeping and sleepAnimTrack then
+		sleepAnimTrack:Stop()
 	end
 end
 
@@ -184,18 +148,7 @@ local function updateSleepStates()
 		end
 
 		local isSleeping = player:GetAttribute("Sleeping")
-		local sleepingPosition = player:GetAttribute("SleepingPosition")
-		
-		-- Only update blanket if not in a side position (Left/Right blocks position calculation)
-		-- Color will still update via the early return in updateBlanket
-		if isSleeping and (sleepingPosition ~= "Left" and sleepingPosition ~= "Right") then
-			BlanketService.updateBlanket(player)
-		elseif isSleeping then
-			-- For Left/Right positions, still call update for color changes only
-			BlanketService.updateBlanket(player)
-		elseif not isSleeping then
-			BlanketService.updateBlanket(player) -- This will destroy the blanket
-		end
+		BlanketService.updateBlanket(player)
 
 		if USE_SNORES and isSleeping and shouldSnore(player.UserId) then
 			playRandomSnoringSound(head)
@@ -208,40 +161,19 @@ local function updateSleepStates()
 end
 
 local function initPlayer(player)
-	-- Initialize the animation tracks table for this player
-	sleepAnimTracks[player] = {}
-	
-	-- Listen for sleeping state changes on the player
-	player:GetAttributeChangedSignal("Sleeping"):Connect(function()
+	local sleepAttChanged
+	sleepAttChanged = player:GetAttributeChangedSignal("Sleeping"):Connect(function()
 		playSleepAnim(player)
 	end)
-	
-	-- Function to set up character-specific listeners
-	local function onCharacterAdded(character)
-		-- Listen for sleeping side changes on the CHARACTER (not player)
-		character:GetAttributeChangedSignal("SleepingSide"):Connect(function()
-			-- Only update if currently sleeping
-			if player:GetAttribute("Sleeping") then
-				print(player.Name, "SleepingSide changed to", character:GetAttribute("SleepingSide"))
-				playSleepAnim(player)
-			end
-		end)
+	sleepConnections[player.UserId] = sleepAttChanged
+end
+
+local function playerRemoving(player)
+	local userId = player.UserId
+	if sleepConnections[userId] then
+		sleepConnections[userId]:Disconnect()
+		sleepConnections[userId] = nil
 	end
-	
-	-- Set up for current character if it exists
-	if player.Character then
-		onCharacterAdded(player.Character)
-	end
-	
-	-- Set up for future characters (respawns)
-	player.CharacterAdded:Connect(onCharacterAdded)
-	
-	-- Clean up when player is removed
-	player.AncestryChanged:Connect(function()
-		if not player:IsDescendantOf(game) then
-			sleepAnimTracks[player] = nil
-		end
-	end)
 end
 
 --- // MAIN
@@ -253,4 +185,5 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 Players.PlayerAdded:Connect(initPlayer)
+Players.PlayerRemoving:Connect(playerRemoving)
 RunService.Heartbeat:Connect(updateSleepStates)
