@@ -8,7 +8,7 @@ local RunService = game:GetService("RunService")
 
 --- // OBJECTS
 local BlanketService = require(script.Parent.SleepBlanketService)
-local AnimationService = require(script.Parent.SleepAnimationService)
+local SleepAnimationService = require(script.Parent.SleepAnimationService)
 local localPlayer = Players.LocalPlayer
 
 local sleepFXTemplate = script.SleepFX
@@ -97,7 +97,7 @@ end
 local function onCharacterAdded(char)
 	char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
 		if localPlayer:GetAttribute("Sleeping") then
-			AnimationService.updateAnimation(localPlayer)
+			SleepAnimationService.updateSleepAnimation()
 		end
 	end)
 end
@@ -141,9 +141,7 @@ local function updateSleepStates()
 end
 
 --- // MAIN
-localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(function()
-	AnimationService.updateAnimation(localPlayer)
-end)
+localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(SleepAnimationService.updateSleepAnimation)
 
 localPlayer.CharacterAdded:Connect(onCharacterAdded)
 if localPlayer.Character then

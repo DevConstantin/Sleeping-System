@@ -35,7 +35,7 @@ end
 
 local function getSleepingAnimID(sleepPosition: string)
 	if sleepPosition == nil or not ANIM_IDS[sleepPosition] then
-		warn("Invalid sleeping position:", sleepPosition, "- defaulting to Back")
+		warn("SleepAnimationService: Invalid sleeping position:", sleepPosition, "- defaulting to Back")
 		sleepPosition = "Back"
 	end
 
@@ -45,6 +45,7 @@ end
 local function loadAndPlayAnimation(sleepAnimId: number)
 	local animator = getAnimator()
 	if not animator then
+		warn("SleepAnimationService: Failed to get own animator!")
 		return
 	end
 
@@ -66,7 +67,8 @@ local function loadAndPlayAnimation(sleepAnimId: number)
 	end)
 end
 
-function SleepAnimationService.updateAnimation()
+-- Method to update the sleeping animation
+function SleepAnimationService.updateSleepAnimation()
 	local char = localPlayer.Character
 	if not char then
 		return
@@ -90,6 +92,7 @@ function SleepAnimationService.updateAnimation()
 	end
 end
 
+-- Method to stop the active sleeping animation, if it exists/is playing
 function SleepAnimationService.stopSleepAnim()
 	if activeAnimTrack and activeAnimTrack.IsPlaying then
 		activeAnimTrack:Stop()
