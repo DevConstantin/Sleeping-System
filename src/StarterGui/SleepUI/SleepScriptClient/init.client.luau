@@ -20,12 +20,14 @@ local USE_SNORES = sleepConfig:GetAttribute("Snores")
 local USE_FX = sleepConfig:GetAttribute("ZZZ_Effect")
 local DEFAULT_SNORE_THRESHOLD = sleepConfig:GetAttribute("SnoreOdds")
 local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
+local SIDE_SWTICH_DEBOUNCE = 1
+local BLANKET_UPDATE_DELAY = 0.1
 
 --- // VARIABLES
 local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
-
+local lastSideSwitchTime = 0
 --- // FUNCTIONS
 
 local function shouldSnore(userId: number): boolean
@@ -97,7 +99,28 @@ end
 local function onCharacterAdded(char)
 	char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
 		if localPlayer:GetAttribute("Sleeping") then
-			SleepAnimationService.updateSleepAnimation()
+			-- Apply debounce to prevent spam
+			local currentTime = os.clock()
+			if currentTime - lastSideSwitchTime < SIDE_SWITCH_DEBOUNCE then
+				return
+			end
+			lastSideSwitchTime = currentTime
+
+			-- Get the current sleeping side
+			local sleepingSide = char:GetAttribute("SleepingSide")
+
+			-- If switching to Back position, update immediately (no rotation needed)
+			-- Otherwise, add a delay to let the animation complete
+			if sleepingSide == "Back" then
+				SleepAnimationService.updateSleepAnimation()
+			else
+				-- Delay animation update to prevent blanket from updating mid-rotation
+				task.delay(BLANKET_UPDATE_DELAY, function()
+					if localPlayer:GetAttribute("Sleeping") then
+						SleepAnimationService.updateSleepAnimation()
+					end
+				end)
+			end
 		end
 	end)
 end
