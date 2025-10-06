@@ -27,7 +27,6 @@ local openButton = script.Parent.OpenButton
 -- Remote events
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local updateBlanketColorEvent = remoteEvents:WaitForChild("UpdateBlanketColor")
-local setSleepingPositionEvent = remoteEvents:WaitForChild("SetSleepingPosition")
 
 -- UI sounds
 local uiSounds = SoundService:WaitForChild("UI_Sounds")
@@ -207,9 +206,14 @@ local function confirmBlanketColor()
 	closeColorWheel()
 end
 
-local function changeSleepingPosition(position)
-	if not table.find(validSleepingPositions, position) then
-		warn("Invalid sleeping position:", position)
+local function changeSleepingPosition(sleepPosition)
+	local char = localPlayer.Character
+	if not char then
+		return
+	end
+
+	if not table.find(validSleepingPositions, sleepPosition) then
+		warn("Invalid sleeping position:", sleepPosition)
 		return
 	end
 
@@ -219,7 +223,7 @@ local function changeSleepingPosition(position)
 	end
 
 	playUISound(clickSound)
-	setSleepingPositionEvent:FireServer(position)
+	char:SetAttribute("SleepingSide", sleepPosition)
 end
 
 local function onSleepingChanged()
