@@ -7,128 +7,93 @@ SleepAnimationService
 
 local SleepAnimationService = {}
 
--- // SERVICES
+--- // SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- // CONFIG
+--- // OBJECTS
+local localPlayer = Players.LocalPlayer
+
+--- // CONFIG
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 
 local ANIM_IDS = {
 	Back = "rbxassetid://131934871886139",
 	Left = "rbxassetid://133771894405396 ",
-	Right = "rbxassetid://72820421782942 "
+	Right = "rbxassetid://72820421782942 ",
 }
 
--- // VARIABLES
-local activeAnimTracks = {}
+--- // VARIABLES
+local activeAnimTrack = nil
 
--- // FUNCTIONS
+--- // FUNCTIONS
 
-local function stopCurrentAnimation(userId)
-	local track = activeAnimTracks[userId]
-	if track and track.IsPlaying then
-		track:Stop()
-	end
-	activeAnimTracks[userId] = nil
+local function getAnimator()
+	local hum = localPlayer.Character and localPlayer.Character:FindFirstChild("Humanoid")
+	return hum and hum:FindFirstChildOfClass("Animator")
 end
 
-local function loadAndPlayAnimation(player, position)
-	local char = player.Character
-	if not char then 
-		warn("No character found for", player.Name)
-		return 
+local function getSleepingAnimID(sleepPosition: string)
+	if sleepPosition == nil or not ANIM_IDS[sleepPosition] then
+		warn("Invalid sleeping position:", sleepPosition, "- defaulting to Back")
+		sleepPosition = "Back"
 	end
-	
-	local humanoid = char:FindFirstChild("Humanoid")
-	if not humanoid then 
-		warn("No humanoid found for", player.Name)
-		return 
+
+	return ANIM_IDS[sleepPosition] or ANIM_IDS.Back
+end
+
+local function loadAndPlayAnimation(sleepAnimId: number)
+	local animator = getAnimator()
+	if not animator then
+		return
 	end
-	
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then 
-		warn("No animator found for", player.Name)
-		return 
-	end
-	
-	stopCurrentAnimation(player.UserId)
-	
-	local animId = ANIM_IDS[position] or ANIM_IDS.Back
-	
+
+	SleepAnimationService.stopSleepAnim()
+
+	-- Play animation
 	local sleepAnimation = Instance.new("Animation")
-	sleepAnimation.AnimationId = animId
-	
+	sleepAnimation.AnimationId = sleepAnimId
+
 	local animTrack = animator:LoadAnimation(sleepAnimation)
-	
-	activeAnimTracks[player.UserId] = animTrack
+
+	activeAnimTrack = animTrack
 	animTrack:Play()
-	
-	animTrack.Stopped:Connect(function()
-		if activeAnimTracks[player.UserId] == animTrack then
-			activeAnimTracks[player.UserId] = nil
-		end
+
+	local animStoppedConnect
+	animStoppedConnect = animTrack.Stopped:Connect(function()
+		activeAnimTrack = nil
+		animStoppedConnect:Disconnect()
 	end)
 end
 
-function SleepAnimationService.updateAnimation(player)
-	if not player or not player:IsA("Player") then
-		warn("Invalid player passed to updateAnimation")
+function SleepAnimationService.updateAnimation()
+	local char = localPlayer.Character
+	if not char then
 		return
 	end
-	
-	local isSleeping = player:GetAttribute("Sleeping")
-	
-	if not isSleeping then
-		stopCurrentAnimation(player.UserId)
-		return
-	end
-	
-	local char = player.Character
-	if not char then 
-		warn("No character found for", player.Name)
-		return 
-	end
-	
-	local sleepingPosition = char:GetAttribute("SleepingSide") or "Back"
-	
-	if not ANIM_IDS[sleepingPosition] then
-		warn("Invalid sleeping position:", sleepingPosition, "- defaulting to Back")
-		sleepingPosition = "Back"
-	end
-	
-	local currentTrack = activeAnimTracks[player.UserId]
-	if currentTrack and currentTrack.IsPlaying then
-		local currentAnimId = currentTrack.Animation.AnimationId
-		if currentAnimId == ANIM_IDS[sleepingPosition] then
-			return
+
+	local isSleeping = localPlayer:GetAttribute("Sleeping")
+	if isSleeping then
+		local desiredAnimId = getSleepingAnimID(char:GetAttribute("SleepingSide"))
+
+		-- Return if the desired animation is already playing
+		if activeAnimTrack and activeAnimTrack.IsPlaying then
+			local currentAnimId = activeAnimTrack.Animation.AnimationId
+			if currentAnimId == desiredAnimId then
+				return
+			end
 		end
+
+		loadAndPlayAnimation(desiredAnimId)
+	else
+		SleepAnimationService.stopSleepAnim()
 	end
-	
-	loadAndPlayAnimation(player, sleepingPosition)
 end
 
-function SleepAnimationService.stopAnimation(player)
-	if not player or not player:IsA("Player") then
-		warn("Invalid player passed to stopAnimation")
-		return
+function SleepAnimationService.stopSleepAnim()
+	if activeAnimTrack and activeAnimTrack.IsPlaying then
+		activeAnimTrack:Stop()
 	end
-	
-	stopCurrentAnimation(player.UserId)
 end
-
-function SleepAnimationService.cleanup(player)
-	if not player or not player:IsA("Player") then
-		return
-	end
-	
-	stopCurrentAnimation(player.UserId)
-end
-
---- // MAIN
-
-Players.PlayerRemoving:Connect(function(player)
-	SleepAnimationService.cleanup(player)
-end)
 
 return SleepAnimationService
