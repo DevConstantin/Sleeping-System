@@ -1,1 +1,0 @@
--- This script contains code for managing blankets on characters

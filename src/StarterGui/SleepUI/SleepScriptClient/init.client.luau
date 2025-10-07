@@ -1,17 +1,18 @@
+-- This client script updates blankets of nearby players, makes nearby sleeping players snore randomly, and emits ZzZzZ FX from player heads
+-- Snoring & sleep FX are optional and can be disabled through attributes under SleepingConfig
+
 --- // SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 --- // OBJECTS
-local DebugService =
-	require(game:GetService("ReplicatedStorage"):WaitForChild("RSModules"):WaitForChild("DebugService"))
+local BlanketService = require(script.Parent.SleepBlanketService)
+local SleepAnimationService = require(script.Parent.SleepAnimationService)
 local localPlayer = Players.LocalPlayer
 
 local sleepFXTemplate = script.SleepFX
 local snoringSounds = script.SnoringSounds
-
-local blanketTemplate = workspace:WaitForChild("Blanket")
 
 --- // CONFIG
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
@@ -19,14 +20,17 @@ local USE_SNORES = sleepConfig:GetAttribute("Snores")
 local USE_FX = sleepConfig:GetAttribute("ZZZ_Effect")
 local DEFAULT_SNORE_THRESHOLD = sleepConfig:GetAttribute("SnoreOdds")
 local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
+local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
+local BLANKET_UPDATE_DELAY = 0.1
 
 --- // VARIABLES
 local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
-
+local lastSideSwitchTime = 0
 --- // FUNCTIONS
-local function ShouldSnore(userId)
+
+local function shouldSnore(userId: number): boolean
 	local currentTime = os.clock()
 	local timeSlot = math.floor(currentTime)
 
@@ -41,7 +45,7 @@ local function ShouldSnore(userId)
 	return roll < playerChance
 end
 
-local function playRandomSnoringSound(head)
+local function playRandomSnoringSound(head: BasePart)
 	if not head or head:FindFirstChild("SnoreSound") then
 		return
 	end
@@ -54,14 +58,13 @@ local function playRandomSnoringSound(head)
 	snoreSound.Parent = head
 	snoreSound:Play()
 
-	local soundEnded
-	soundEnded = snoreSound.Ended:Connect(function()
-		soundEnded:Disconnect()
+	snoreSound.Ended:Once(function()
 		snoreSound:Destroy()
 	end)
 end
 
-local function updateSleepFX(head, sleeping)
+-- Emit sleep FX from a character's head
+local function updateSleepFX(head: BasePart, sleeping: boolean)
 	if not head then
 		return
 	end
@@ -91,131 +94,46 @@ local function updateSleepFX(head, sleeping)
 	end)
 end
 
-local DEBUG_DELAY = 5
-
-local function getFeetPosition(char)
-	local leftFoot = char:FindFirstChild("LeftFoot")
-	local leftAtt = leftFoot and leftFoot:FindFirstChildWhichIsA("Attachment")
-	local rightFoot = char:FindFirstChild("RightFoot")
-	local rightAtt = rightFoot and rightFoot:FindFirstChildWhichIsA("Attachment")
-	if not leftAtt and not rightAtt then
-		return
-	end
-
-	local posL = leftAtt.WorldCFrame.Position
-	local posR = rightAtt.WorldCFrame.Position
-	local feetPos = leftAtt.WorldCFrame.Position
-
-	DebugService:placeNode(feetPos, nil, nil, DEBUG_DELAY)
-
-	local offsetVector = CFrame.lookAt(posL, posR).LookVector.Unit * (posL - posR).Magnitude / 2 -- The line between the feet, divided by 2 to get the midpoint
-	DebugService:connectPositions(feetPos, feetPos + offsetVector, Color3.new(0, 1, 0), 0.05, DEBUG_DELAY)
-
-	feetPos += offsetVector
-
-	DebugService:placeNode(feetPos, nil, nil, DEBUG_DELAY)
-	return feetPos
-end
-
-local function getBlanket(player, addingBlanket: boolean)
-	local blanketsFolder = workspace:FindFirstChild("Sleep_System_Blankets")
-	if not blanketsFolder then
-		blanketsFolder = Instance.new("Folder")
-		blanketsFolder.Name = "Sleep_System_Blankets"
-		blanketsFolder.Parent = workspace
-	end
-
-	local blanket = blanketsFolder:FindFirstChild("Blanket_" .. tostring(player.UserId))
-	if not blanket and addingBlanket then
-		blanket = blanketTemplate:Clone()
-		blanket.Name = "Blanket_" .. tostring(player.UserId)
-		blanket.Parent = blanketsFolder
-	end
-
-	return blanket
-end
-
-local function updateBlanket(player)
-	local isSleeping = player:GetAttribute("Sleeping")
-	if isSleeping then
-		local char = player.Character
-		local torso = char and char:FindFirstChild("UpperTorso")
-		local lowerTorso = char and char:FindFirstChild("LowerTorso")
-		if not torso or not lowerTorso then
-			warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
+local function onCharacterAdded(char)
+	local sleepingSideChanged
+	sleepingSideChanged = char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
+		if not localPlayer:GetAttribute("Sleeping") then
 			return
 		end
-
-		local feetPos = getFeetPosition(char)
-		if not feetPos then
-			warn("Failed to get feet position for", char)
+		-- Apply debounce to prevent spam
+		local currentTime = os.clock()
+		if currentTime - lastSideSwitchTime < SIDE_SWITCH_DELAY then
 			return
 		end
+		lastSideSwitchTime = currentTime
 
-		local waistAtt = lowerTorso:FindFirstChild("WaistCenterAttachment")
-		local waistCF = waistAtt and waistAtt.WorldCFrame
-		local neckAtt = torso:FindFirstChild("NeckAttachment")
-		local neckPos = neckAtt and neckAtt.WorldCFrame.Position
-		if not waistCF or not neckPos then
-			warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
-			return
+		-- Get the current sleeping side
+		local sleepingSide = char:GetAttribute("SleepingSide")
+
+		-- If switching to Back position, update immediately (no rotation needed)
+		-- Otherwise, add a delay to let the animation complete
+		if sleepingSide == "Back" then
+			SleepAnimationService.updateSleepAnimation()
+		else
+			-- Delay animation update to prevent blanket from updating mid-rotation
+			task.delay(BLANKET_UPDATE_DELAY, function()
+				if localPlayer:GetAttribute("Sleeping") then
+					SleepAnimationService.updateSleepAnimation()
+				end
+			end)
 		end
+	end)
 
-		DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-		DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-		DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
-
-		local blanket = getBlanket(player, true)
-		local blanketSizeZ = (feetPos - neckPos).Magnitude
-		local extents = char:GetExtentsSize()
-		local ySize = torso.Size.Y
-		blanket.Size = Vector3.new(extents.X + extents.X * 0.1, ySize + ySize * 0.1, blanketSizeZ)
-
-		DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
-		local previousPos = waistCF.Position
-		waistCF -= (waistCF.UpVector * blanketSizeZ * 0.1)
-		DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
-		DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
-
-		blanket.CFrame = waistCF * CFrame.Angles(math.rad(90), 0, 0)
-	else
-		local blanket = getBlanket(player, false)
-		if blanket then
-			blanket:Destroy()
-		end
-	end
+	char.Destroying:Once(function()
+		sleepingSideChanged:Disconnect()
+	end)
 end
 
-local function playSleepAnim(player)
-	local sleeping = player:GetAttribute("Sleeping")
-
-	updateBlanket(player)
-
-	if player ~= localPlayer then
-		return
-	end
-
-	local char = player.Character
-	if not char then
-		return
-	end
-	local animator = char:WaitForChild("Humanoid"):WaitForChild("Animator")
-
-	print(player, sleeping and "is sleeping!" or "is NOT sleeping.")
-
-	if sleeping then
-		if not sleepAnimTrack then
-			local sleepAnimation = Instance.new("Animation")
-			sleepAnimation.AnimationId = "rbxassetid://77400291260696"
-			sleepAnimTrack = animator:LoadAnimation(sleepAnimation)
-		end
-		sleepAnimTrack:Play()
-	elseif not sleeping and sleepAnimTrack then
-		sleepAnimTrack:Stop()
-	end
-end
-
+-- This function will update blankets, emit snores, and sleep FX for all nearby players
+-- Snores, sleep FX, & proximity range can be configured
+-- No animation stuff in here. The client handles their own animations
 local function updateSleepStates()
+	-- Makes the code run at an interval
 	if (os.clock() - t) < interval then
 		return
 	end
@@ -229,35 +147,32 @@ local function updateSleepStates()
 			continue
 		end
 
-		local isSleeping = player:GetAttribute("Sleeping")
+		-- We don't need any of the below to run for players who are very far away
 		local inProximity = localPlayer:DistanceFromCharacter(head.Position) < SLEEP_FX_RANGE
+		if not inProximity then
+			continue
+		end
 
-		updateBlanket(player)
+		local isSleeping = player:GetAttribute("Sleeping")
 
-		if USE_SNORES and isSleeping and inProximity and ShouldSnore(player.UserId) then
+		BlanketService.updateBlanket(player)
+
+		if USE_SNORES and isSleeping and shouldSnore(player.UserId) then
 			playRandomSnoringSound(head)
 		end
 
 		if USE_FX then
-			updateSleepFX(head, isSleeping and inProximity)
+			updateSleepFX(head, isSleeping)
 		end
 	end
 end
 
-local function initPlayer(player)
-	-- This will memory leak but I don't currently care
-	player:GetAttributeChangedSignal("Sleeping"):Connect(function()
-		playSleepAnim(player)
-	end)
-end
-
 --- // MAIN
+localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(SleepAnimationService.updateSleepAnimation)
 
-initPlayer(localPlayer)
-
-for _, player in ipairs(Players:GetPlayers()) do
-	initPlayer(player)
+localPlayer.CharacterAdded:Connect(onCharacterAdded)
+if localPlayer.Character then
+	onCharacterAdded(localPlayer.Character)
 end
 
-Players.PlayerAdded:Connect(initPlayer)
 RunService.Heartbeat:Connect(updateSleepStates)
