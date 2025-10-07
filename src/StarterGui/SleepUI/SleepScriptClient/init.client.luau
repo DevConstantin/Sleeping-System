@@ -58,9 +58,7 @@ local function playRandomSnoringSound(head: BasePart)
 	snoreSound.Parent = head
 	snoreSound:Play()
 
-	local soundEnded
-	soundEnded = snoreSound.Ended:Connect(function()
-		soundEnded:Disconnect()
+	snoreSound.Ended:Once(function()
 		snoreSound:Destroy()
 	end)
 end
