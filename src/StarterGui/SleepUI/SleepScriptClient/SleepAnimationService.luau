@@ -59,11 +59,8 @@ local function loadAndPlayAnimation(sleepAnimId: number)
 
 	activeAnimTrack = animTrack
 	animTrack:Play()
-
-	local animStoppedConnect
-	animStoppedConnect = animTrack.Stopped:Connect(function()
+	animTrack.Stopped:Once(function()
 		activeAnimTrack = nil
-		animStoppedConnect:Disconnect()
 	end)
 end
 

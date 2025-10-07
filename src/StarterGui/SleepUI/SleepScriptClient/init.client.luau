@@ -97,7 +97,8 @@ local function updateSleepFX(head: BasePart, sleeping: boolean)
 end
 
 local function onCharacterAdded(char)
-	char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
+	local sleepingSideChanged
+	sleepingSideChanged = char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
 		if not localPlayer:GetAttribute("Sleeping") then
 			return
 		end
@@ -123,6 +124,10 @@ local function onCharacterAdded(char)
 				end
 			end)
 		end
+	end)
+
+	char.Destroying:Once(function()
+		sleepingSideChanged:Disconnect()
 	end)
 end
 
