@@ -52,6 +52,7 @@ local function getBlanket(player, addingBlanket: boolean)
 		blanket = blanketTemplate:Clone()
 		blanket.Name = "Blanket_" .. tostring(player.UserId)
 		blanket.Parent = blanketsFolder
+		blanket.Anchored = true -- Ensure blanket is always anchored
 	end
 
 	return blanket
@@ -59,27 +60,32 @@ end
 
 function SleepBlanketService.updateBlanket(player)
 	local isSleeping = player:GetAttribute("Sleeping")
-	if isSleeping then
-		local char = player.Character
-		if not char then
-			warn("No character found for", player)
-			return
-		end
-		
-		-- Get sleeping side from CHARACTER, not player
-		local sleepingSide = char:GetAttribute("SleepingSide")
-		local isSideSleeping = sleepingSide == "Left" or sleepingSide == "Right"
-		
-		local torso = char:FindFirstChild("UpperTorso")
-		local lowerTorso = char:FindFirstChild("LowerTorso")
-		if not torso or not lowerTorso then
-			warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
-			return
-		end
 
+	-- If not sleeping, remove blanket and exit
+	if not isSleeping then
+		local blanket = getBlanket(player, false)
+		if blanket then
+			blanket:Destroy()
+		end
+		return
+	end
+
+	-- Player is sleeping, continue with blanket logic
+	local char = player.Character
+	if not char then
+		warn("No character found for", player)
+		return
+	end
+
+	-- Get sleeping side from CHARACTER, not player
+	local sleepingSide = char:GetAttribute("SleepingSide")
+	local isSideSleeping = sleepingSide == "Left" or sleepingSide == "Right"
+
+	-- If side sleeping, just ensure blanket exists but don't update position
+	if isSideSleeping then
 		local blanket = getBlanket(player, true)
 
-		-- Update blanket color from player's CharacterData with tween
+		-- Update blanket color only (no position updates)
 		local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
 
 		local characterData = player:FindFirstChild("CharacterData")
@@ -100,67 +106,94 @@ function SleepBlanketService.updateBlanket(player)
 			local tween = TweenService:Create(blanket, tweenInfo, { Color = desiredColor })
 			tween:Play()
 		end
-		
-		-- Exit early for side sleeping - color is updated, but skip position/size
-		if isSideSleeping then
-			return
-		end
-		
-		-- Check if position was recently locked due to position change
-		local positionLockTime = blanket:GetAttribute("PositionLockUntil")
-		if positionLockTime and os.clock() < positionLockTime then
-			return -- Skip position updates while locked
-		end
-		
-		local feetPos = getFeetPosition(char)
-		if not feetPos then
-			warn("Failed to get feet position for", char)
-			return
-		end
 
-		local waistAtt = lowerTorso:FindFirstChild("WaistCenterAttachment")
-		local waistCF = waistAtt and waistAtt.WorldCFrame
-		local neckAtt = torso:FindFirstChild("NeckAttachment")
-		local neckPos = neckAtt and neckAtt.WorldCFrame.Position
-		if not waistCF or not neckPos then
-			warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
-			return
+		-- Exit early - no position updates for side sleeping
+		return
+	end
+
+	-- Back sleeping - show blanket with proper positioning
+	local torso = char:FindFirstChild("UpperTorso")
+	local lowerTorso = char:FindFirstChild("LowerTorso")
+	if not torso or not lowerTorso then
+		warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
+		return
+	end
+
+	local blanket = getBlanket(player, true)
+
+	-- Update blanket color from player's CharacterData with tween
+	local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
+
+	local characterData = player:FindFirstChild("CharacterData")
+	if characterData then
+		local blanketColorValue = characterData:FindFirstChild("blanket_Color")
+		if blanketColorValue then
+			-- Only use the saved color if it's not black (0,0,0) or nil
+			local savedColor = blanketColorValue.Value
+			if savedColor and savedColor ~= Color3.new(0, 0, 0) then
+				desiredColor = savedColor
+			end
 		end
+	end
 
-		DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-		DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-		DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
-		
-		-- Scale based on character size
-		local baseLength = (feetPos - neckPos).Magnitude
-		local FEET_EXTRA_PERCENT = 0.25  -- 25% extra length past feet
-		local ARM_WIDTH_MULTIPLIER = 1.4  -- 40% wider for arms
-		
-		local blanketSizeZ = baseLength * (1 + FEET_EXTRA_PERCENT)
-		local extents = char:GetExtentsSize()
-		local ySize = torso.Size.Y + 0.1
-		blanket.Size = Vector3.new(
-			extents.X * ARM_WIDTH_MULTIPLIER,  -- Wider for arms
-			ySize + ySize * 0.1,
-			blanketSizeZ  -- Longer for feet
-		)
+	-- Tween to the desired color
+	if blanket.Color ~= desiredColor then
+		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local tween = TweenService:Create(blanket, tweenInfo, { Color = desiredColor })
+		tween:Play()
+	end
 
-		DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
-		local previousPos = waistCF.Position
-		
-		-- Shift down slightly
-		waistCF -= (waistCF.UpVector * blanketSizeZ * 0.1)
-		
-		DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
-		DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
+	local feetPos = getFeetPosition(char)
+	if not feetPos then
+		warn("Failed to get feet position for", char)
+		return
+	end
 
-		blanket.CFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
-		blanket.Anchored = true -- Lock position after calculation
-	else
-		local blanket = getBlanket(player, false)
-		if blanket then
-			blanket:Destroy()
-		end
+	local waistAtt = lowerTorso:FindFirstChild("WaistCenterAttachment")
+	local waistCF = waistAtt and waistAtt.WorldCFrame
+	local neckAtt = torso:FindFirstChild("NeckAttachment")
+	local neckPos = neckAtt and neckAtt.WorldCFrame.Position
+	if not waistCF or not neckPos then
+		warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
+		return
+	end
+
+	DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
+	DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
+	DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
+
+	-- Scale based on character size
+	local baseLength = (feetPos - neckPos).Magnitude
+	local FEET_EXTRA_PERCENT = 0.25 -- 25% extra length past feet
+	local ARM_WIDTH_MULTIPLIER = 1.4 -- 40% wider for arms
+
+	local blanketSizeZ = baseLength * (1 + FEET_EXTRA_PERCENT)
+	local extents = char:GetExtentsSize()
+	local ySize = torso.Size.Y + 0.1
+	blanket.Size = Vector3.new(
+		extents.X * ARM_WIDTH_MULTIPLIER, -- Wider for arms
+		ySize + ySize * 0.1,
+		blanketSizeZ -- Longer for feet
+	)
+
+	DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
+	local previousPos = waistCF.Position
+
+	-- Shift down slightly
+	waistCF -= (waistCF.UpVector * blanketSizeZ * 0.1)
+
+	DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
+	DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
+
+	blanket.CFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
+	blanket.Anchored = true -- Ensure position is locked
+end
+
+-- Clean up method for when player leaves
+function SleepBlanketService.cleanUp(player)
+	local blanket = getBlanket(player, false)
+	if blanket then
+		blanket:Destroy()
 	end
 end
 
