@@ -19,8 +19,8 @@ local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 
 local ANIM_IDS = {
 	Back = "rbxassetid://131934871886139",
-	Left = "rbxassetid://133771894405396", -- Fixed: Removed extra space
-	Right = "rbxassetid://72820421782942", -- Fixed: Removed extra space
+	Left = "rbxassetid://72820421782942", -- Fixed: Removed extra space
+	Right = "rbxassetid://133771894405396", -- Fixed: Removed extra space
 }
 
 --- // VARIABLES
@@ -35,8 +35,8 @@ local function getAnimator()
 end
 
 local function getSleepingAnimID(sleepPosition: string)
+	-- Override desired sleeping position
 	if sleepPosition == nil or not ANIM_IDS[sleepPosition] then
-		warn("SleepAnimationService: Invalid sleeping position:", sleepPosition, "- defaulting to Back")
 		sleepPosition = "Back"
 	end
 

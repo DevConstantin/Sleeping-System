@@ -20,14 +20,12 @@ local USE_SNORES = sleepConfig:GetAttribute("Snores")
 local USE_FX = sleepConfig:GetAttribute("ZZZ_Effect")
 local DEFAULT_SNORE_THRESHOLD = sleepConfig:GetAttribute("SnoreOdds")
 local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
-local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
 local BLANKET_UPDATE_DELAY = 0.1
 
 --- // VARIABLES
 local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
-local lastSideSwitchTime = 0
 --- // FUNCTIONS
 
 local function shouldSnore(userId: number): boolean
@@ -97,13 +95,6 @@ end
 local function onCharacterAdded(char)
 	local sleepingSideChanged
 	sleepingSideChanged = char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
-		-- Apply debounce to prevent spam
-		local currentTime = os.clock()
-		if currentTime - lastSideSwitchTime < SIDE_SWITCH_DELAY then
-			return
-		end
-		lastSideSwitchTime = currentTime
-
 		-- ALWAYS update animation when sleeping side changes, even if not sleeping
 		-- This ensures animation stops when player exits bed while on Left/Right
 		local sleepingSide = char:GetAttribute("SleepingSide")

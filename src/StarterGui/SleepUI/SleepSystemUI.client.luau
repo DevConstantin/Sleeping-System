@@ -34,6 +34,10 @@ local clickSound = uiSounds:WaitForChild("RBLX UI Hover 02 (SFX)")
 local hoverSound = uiSounds:WaitForChild("RBLX UI Hover 03 (SFX)")
 local confirmSound = uiSounds:WaitForChild("RBLX UI Back (SFX)")
 
+--- // CONFIG
+local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
+local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
+
 --- // TWEEN SETTINGS
 local TWEEN_INFO_OPEN = TweenInfo.new(1.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local TWEEN_INFO_CLOSE = TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
@@ -44,6 +48,7 @@ local hiddenPositions = {}
 local currentTweens = {}
 local openButtonOriginalPosition = nil
 local validSleepingPositions = {"Back", "Left", "Right"}
+local lastSideSwitchTime = 0
 
 
 --- // FUNCTIONS
@@ -207,6 +212,13 @@ local function confirmBlanketColor()
 end
 
 local function changeSleepingPosition(sleepPosition)
+	-- Apply debounce to prevent spam
+	local currentTime = os.clock()
+	if currentTime - lastSideSwitchTime < SIDE_SWITCH_DELAY then
+		return
+	end
+	lastSideSwitchTime = currentTime
+
 	local char = localPlayer.Character
 	if not char then
 		return
