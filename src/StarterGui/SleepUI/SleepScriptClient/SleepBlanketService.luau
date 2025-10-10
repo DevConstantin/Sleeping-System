@@ -5,22 +5,25 @@ local SleepBlanketService = {}
 -- // SERVICES
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+
 --- // OBJECTS
 local DebugService = require(ReplicatedStorage.RSModules.DebugService)
 
 local blanketTemplate = workspace:WaitForChild("Blanket")
+local blanketsFolder = workspace.Sleep_System_Blankets
 
 -- // CONFIG
 local DEBUG_DELAY = 5
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 local DEFAULT_BLANKET_COLOR = sleepConfig:GetAttribute("DefaultBlanketColor")
 
-local function getFeetPosition(char)
+-- Get position between the player's feet
+local function getFeetPosition(char: Model): Vector3
 	local leftFoot = char:FindFirstChild("LeftFoot")
 	local leftAtt = leftFoot and leftFoot:FindFirstChildWhichIsA("Attachment")
 	local rightFoot = char:FindFirstChild("RightFoot")
 	local rightAtt = rightFoot and rightFoot:FindFirstChildWhichIsA("Attachment")
-	if not leftAtt and not rightAtt then
+	if not leftAtt or not rightAtt then -- return if either foot attachment is missing. May be needed in situations where a character is somehow missing feet
 		return
 	end
 
@@ -39,100 +42,17 @@ local function getFeetPosition(char)
 	return feetPos
 end
 
-local function getBlanket(player, addingBlanket: boolean)
-	local blanketsFolder = workspace:FindFirstChild("Sleep_System_Blankets")
-	if not blanketsFolder then
-		blanketsFolder = Instance.new("Folder")
-		blanketsFolder.Name = "Sleep_System_Blankets"
-		blanketsFolder.Parent = workspace
-	end
-
-	local blanket = blanketsFolder:FindFirstChild("Blanket_" .. tostring(player.UserId))
-	if not blanket and addingBlanket then
-		blanket = blanketTemplate:Clone()
-		blanket.Name = "Blanket_" .. tostring(player.UserId)
-		blanket.Parent = blanketsFolder
-		blanket.Anchored = true -- Ensure blanket is always anchored
-	end
-
-	return blanket
-end
-
-function SleepBlanketService.updateBlanket(player)
-	local isSleeping = player:GetAttribute("Sleeping")
-
-	-- If not sleeping, remove blanket and exit
-	if not isSleeping then
-		local blanket = getBlanket(player, false)
-		if blanket then
-			blanket:Destroy()
-		end
-		return
-	end
-
-	-- Player is sleeping, continue with blanket logic
-	local char = player.Character
-	if not char then
-		warn("No character found for", player)
-		return
-	end
-
-	-- Get sleeping side from CHARACTER, not player
-	local sleepingSide = char:GetAttribute("SleepingSide")
-	local isSideSleeping = sleepingSide == "Left" or sleepingSide == "Right"
-
-	-- If side sleeping, just ensure blanket exists but don't update position
-	if isSideSleeping then
-		local blanket = getBlanket(player, true)
-
-		-- Update blanket color only (no position updates)
-		local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
-
-		local characterData = player:FindFirstChild("CharacterData")
-		if characterData then
-			local blanketColorValue = characterData:FindFirstChild("blanket_Color")
-			if blanketColorValue then
-				-- Only use the saved color if it's not black (0,0,0) or nil
-				local savedColor = blanketColorValue.Value
-				if savedColor and savedColor ~= Color3.new(0, 0, 0) then
-					desiredColor = savedColor
-				end
-			end
-		end
-
-		-- Tween to the desired color
-		if blanket.Color ~= desiredColor then
-			local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-			local tween = TweenService:Create(blanket, tweenInfo, { Color = desiredColor })
-			tween:Play()
-		end
-
-		-- Exit early - no position updates for side sleeping
-		return
-	end
-
-	-- Back sleeping - show blanket with proper positioning
-	local torso = char:FindFirstChild("UpperTorso")
-	local lowerTorso = char:FindFirstChild("LowerTorso")
-	if not torso or not lowerTorso then
-		warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
-		return
-	end
-
-	local blanket = getBlanket(player, true)
-
+local function updateBlanketColor(player, blanket: BasePart)
 	-- Update blanket color from player's CharacterData with tween
 	local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
 
 	local characterData = player:FindFirstChild("CharacterData")
-	if characterData then
-		local blanketColorValue = characterData:FindFirstChild("blanket_Color")
-		if blanketColorValue then
-			-- Only use the saved color if it's not black (0,0,0) or nil
-			local savedColor = blanketColorValue.Value
-			if savedColor and savedColor ~= Color3.new(0, 0, 0) then
-				desiredColor = savedColor
-			end
+	local blanketColorValue = characterData and characterData:FindFirstChild("blanket_Color")
+	if blanketColorValue then
+		-- Only use the saved color if it's not black (0,0,0) or nil
+		local savedColor = blanketColorValue.Value
+		if savedColor and savedColor ~= Color3.new(0, 0, 0) then
+			desiredColor = savedColor
 		end
 	end
 
@@ -141,6 +61,16 @@ function SleepBlanketService.updateBlanket(player)
 		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		local tween = TweenService:Create(blanket, tweenInfo, { Color = desiredColor })
 		tween:Play()
+	end
+end
+
+-- Function to place a blanket on a character
+local function placeBlanket(char: Model, blanket: BasePart)
+	local torso = char:FindFirstChild("UpperTorso")
+	local lowerTorso = char:FindFirstChild("LowerTorso")
+	if not torso or not lowerTorso then
+		warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
+		return
 	end
 
 	local feetPos = getFeetPosition(char)
@@ -189,12 +119,60 @@ function SleepBlanketService.updateBlanket(player)
 	blanket.Anchored = true -- Ensure position is locked
 end
 
--- Clean up method for when player leaves
-function SleepBlanketService.cleanUp(player)
-	local blanket = getBlanket(player, false)
+-- Function to get a blanket for the player, or create a new one if the player's blanket doesn't exist
+function SleepBlanketService.getBlanketMesh(player, addingBlanket: boolean?)
+	local userId = player.UserId
+	local blanket = blanketsFolder:FindFirstChild("Blanket_" .. tostring(userId))
+	if not blanket and addingBlanket then
+		blanket = blanketTemplate:Clone()
+		blanket.Name = "Blanket_" .. tostring(userId)
+		blanket.Anchored = true -- Ensure blanket is always anchored
+		-- placeBlanket(player.Character, blanket)
+		blanket.Parent = blanketsFolder
+	end
+	return blanket
+end
+
+-- Update the player blanket's color & position
+function SleepBlanketService.updateBlanket(player)
+	local isSleeping = player:GetAttribute("Sleeping")
+
+	-- Ensure character exists
+	local char = player.Character
+	if not char then
+		warn("No character found for", player)
+		return
+	end
+
+	-- If not sleeping, remove blanket and exit
+	if not isSleeping then
+		SleepBlanketService.removeBlanket(player)
+		return
+	end
+
+	-- Player is sleeping, continue with blanket logic
+	local blanket = SleepBlanketService.getBlanketMesh(player, true)
+
+	-- Update blanket color only (no position updates)
+	updateBlanketColor(player, blanket)
+
+	-- Get sleeping side from CHARACTER, not player
+	-- Update blanket position, if sleeping on the back
+	local sleepingSide = char:GetAttribute("SleepingSide")
+	local isSideSleeping = sleepingSide == "Left" or sleepingSide == "Right"
+	print("Current sleeping side:", sleepingSide, "Side sleeping?", isSideSleeping)
+	if not isSideSleeping then
+		placeBlanket(char, blanket)
+	end
+end
+
+function SleepBlanketService.removeBlanket(player)
+	local blanket = SleepBlanketService.getBlanketMesh(player, false)
 	if blanket then
 		blanket:Destroy()
 	end
 end
 
 return SleepBlanketService
+
+-- test

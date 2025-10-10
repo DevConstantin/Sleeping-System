@@ -178,4 +178,5 @@ if localPlayer.Character then
 	onCharacterAdded(localPlayer.Character)
 end
 
+Players.PlayerRemoving:Connect(BlanketService.removeBlanket)
 RunService.Heartbeat:Connect(updateSleepStates)
