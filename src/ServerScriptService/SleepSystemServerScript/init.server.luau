@@ -9,7 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- // OBJECTS
 local sleepConfig = ReplicatedStorage.Configurations:WaitForChild("SleepingConfig")
-local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("SleepingSystem")
 local updateBlanketColorEvent = remoteEvents:WaitForChild("UpdateBlanketColor")
 local charDataTemplate = ReplicatedStorage:WaitForChild("CharacterDataTemplate")
 

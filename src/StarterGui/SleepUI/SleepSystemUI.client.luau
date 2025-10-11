@@ -24,7 +24,7 @@ local positionRight = positionSelectionFrame.Right
 local openButton = script.Parent.OpenButton
 
 -- Remote events
-local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("SleepingSystem")
 local updateBlanketColorEvent = remoteEvents:WaitForChild("UpdateBlanketColor")
 
 -- UI sounds
