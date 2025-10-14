@@ -46,7 +46,7 @@ end
 local function loadAndPlayAnimation(sleepAnimId: string)
 	local animator = getAnimator()
 	if not animator then
-		warn("SleepAnimationService: Failed to get own animator!")
+		--warn("SleepAnimationService: Failed to get own animator!")
 		return
 	end
 

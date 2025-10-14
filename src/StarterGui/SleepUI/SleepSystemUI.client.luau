@@ -184,9 +184,8 @@ end
 ------------------------------------------------------------------------------------------------
 local function confirmBlanketColor()
 	local newColor = wheelOutput.Value
-
 	if typeof(newColor) ~= "Color3" then
-		warn("Invalid color from wheel output")
+		--warn("Invalid color from wheel output")
 		return
 	end
 
@@ -209,12 +208,12 @@ local function changeSleepingPosition(sleepPosition)
 
 	-- Ensure blanket position is set by the server before allowing position changes
 	if not char:GetAttribute("BlanketCFrame") then
-		warn("Blanket position not yet set; cannot change sleeping position")
+		--warn("Blanket position not yet set; cannot change sleeping position")
 		return
 	end
 
 	if not table.find(validSleepingPositions, sleepPosition) then
-		warn("Invalid sleeping position:", sleepPosition)
+		--warn("Invalid sleeping position:", sleepPosition)
 		return
 	end
 

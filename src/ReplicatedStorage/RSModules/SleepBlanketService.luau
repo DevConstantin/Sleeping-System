@@ -90,13 +90,13 @@ function SleepBlanketService.getBlanketCFrameAndSize(char: Model): (CFrame, Vect
 		local torso = char:FindFirstChild("UpperTorso")
 		local lowerTorso = char:FindFirstChild("LowerTorso")
 		if not torso or not lowerTorso then
-			warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
+			--warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
 			return
 		end
 
 		local feetPos = getFeetPosition(char)
 		if not feetPos then
-			warn("Failed to get feet position for", char)
+			--warn("Failed to get feet position for", char)
 			return
 		end
 
@@ -105,7 +105,7 @@ function SleepBlanketService.getBlanketCFrameAndSize(char: Model): (CFrame, Vect
 		local neckAtt = torso:FindFirstChild("NeckAttachment")
 		local neckPos = neckAtt and neckAtt.WorldCFrame.Position
 		if not waistCF or not neckPos then
-			warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
+			--warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
 			return
 		end
 
@@ -138,7 +138,7 @@ function SleepBlanketService.getBlanketCFrameAndSize(char: Model): (CFrame, Vect
 			DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
 		end
 
-		local targetCFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
+		targetCFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
 	end)
 
 	if not success then
@@ -156,7 +156,7 @@ function SleepBlanketService.updateBlanket(player)
 	-- Ensure character exists
 	local char = player.Character
 	if not char then
-		warn("No character found for", player)
+		--warn("No character found for", player)
 		return
 	end
 
@@ -176,7 +176,7 @@ function SleepBlanketService.updateBlanket(player)
 	local targetSize = char:GetAttribute("BlanketSize")
 	if targetCframe == nil or targetSize == nil then
 		-- Blanket position not yet set
-		warn("Blanket position/size not set for", player, "Cannot update blanket position")
+		--warn("Blanket position/size not set for", player, "Cannot update blanket position")
 		return
 	end
 

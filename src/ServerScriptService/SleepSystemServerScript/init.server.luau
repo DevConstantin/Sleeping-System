@@ -27,7 +27,7 @@ local sleepConnections = {}
 -- Remote event handlers
 local function onUpdateBlanketColor(player, newColor)
 	if typeof(newColor) ~= "Color3" then
-		warn("Invalid color received from", player.Name)
+		warn("Invalid color received from", player.Name, "- Possible exploit attempt?")
 		return
 	end
 
@@ -35,9 +35,9 @@ local function onUpdateBlanketColor(player, newColor)
 	local blanketColorValue = characterData and characterData:FindFirstChild("blanket_Color")
 	if blanketColorValue then
 		blanketColorValue.Value = newColor
-		print(player.Name, "updated blanket color to", newColor)
+		--print(player.Name, "updated blanket color to", newColor)
 	else
-		warn("Failed to get blanket color value for", player, characterData, blanketColorValue)
+		--warn("Failed to get blanket color value for", player, characterData, blanketColorValue)
 	end
 end
 
