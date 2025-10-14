@@ -25,12 +25,11 @@ ReplicatedStorage/
 ├── RemoteEvents/                   [Folder]
 │   └── UpdateBlanketColor          [RemoteEvent - Syncs blanket color to server]
 ├── Configurations/                 [Folder]
-│   └── SleepingConfig              [Configuration object with attributes]
+│   └── SleepingConfig              [Configuration object with attributes, also contains BlanketMesh]
 └── CharacterDataTemplate           [Folder - Template for player data]
     └── blanket_Color               [Color3Value - Stores blanket color]
 
 Workspace/
-├── Blanket                         [MeshPart - Template for blankets]
 └── Sleep_System_Blankets           [Folder - Contains active blankets]
 
 ServerScriptService/

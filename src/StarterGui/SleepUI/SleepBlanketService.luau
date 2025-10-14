@@ -7,14 +7,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 --- // OBJECTS
-local DebugService = require(ReplicatedStorage.RSModules.DebugService)
+local debugServiceModule = ReplicatedStorage.RSModules:FindFirstChild("DebugService")
+local DebugService = debugServiceModule and require(debugServiceModule)
 
-local blanketTemplate = workspace:WaitForChild("Blanket")
+local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
+local blanketTemplate = sleepConfig.BlanketMesh
 local blanketsFolder = workspace.Sleep_System_Blankets
 
 -- // CONFIG
+local USE_DEBUG = sleepConfig:GetAttribute("UseDebugVisualization") or false
 local DEBUG_DELAY = 5
-local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 local DEFAULT_BLANKET_COLOR = sleepConfig:GetAttribute("DefaultBlanketColor")
 
 -- Get position between the player's feet
@@ -31,14 +33,15 @@ local function getFeetPosition(char: Model): Vector3
 	local posR = rightAtt.WorldCFrame.Position
 	local feetPos = leftAtt.WorldCFrame.Position
 
-	DebugService:placeNode(feetPos, nil, nil, DEBUG_DELAY)
-
 	local offsetVector = CFrame.lookAt(posL, posR).LookVector.Unit * (posL - posR).Magnitude / 2 -- The line between the feet, divided by 2 to get the midpoint
-	DebugService:connectPositions(feetPos, feetPos + offsetVector, Color3.new(0, 1, 0), 0.05, DEBUG_DELAY)
-
 	feetPos += offsetVector
 
-	DebugService:placeNode(feetPos, nil, nil, DEBUG_DELAY)
+	if USE_DEBUG and DebugService then
+		DebugService:placeNode(feetPos, nil, nil, DEBUG_DELAY)
+		DebugService:connectPositions(feetPos, feetPos + offsetVector, Color3.new(0, 1, 0), 0.05, DEBUG_DELAY)
+		DebugService:placeNode(feetPos, nil, nil, DEBUG_DELAY)
+	end
+
 	return feetPos
 end
 
@@ -51,7 +54,7 @@ local function updateBlanketColor(player, blanket: BasePart)
 	if blanketColorValue then
 		-- Only use the saved color if it's not black (0,0,0) or nil
 		local savedColor = blanketColorValue.Value
-		if savedColor and savedColor ~= Color3.new(0, 0, 0) then
+		if savedColor then
 			desiredColor = savedColor
 		end
 	end
@@ -64,7 +67,7 @@ local function updateBlanketColor(player, blanket: BasePart)
 	end
 end
 
--- Function to place a blanket on a character
+-- Function to place a blanket on a character, accounting for the character size and position
 local function placeBlanket(char: Model, blanket: BasePart)
 	local torso = char:FindFirstChild("UpperTorso")
 	local lowerTorso = char:FindFirstChild("LowerTorso")
@@ -88,10 +91,6 @@ local function placeBlanket(char: Model, blanket: BasePart)
 		return
 	end
 
-	DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-	DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-	DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
-
 	-- Scale based on character size
 	local baseLength = (feetPos - neckPos).Magnitude
 	local FEET_EXTRA_PERCENT = 0.25 -- 25% extra length past feet
@@ -106,14 +105,21 @@ local function placeBlanket(char: Model, blanket: BasePart)
 		blanketSizeZ -- Longer for feet
 	)
 
-	DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
+
 	local previousPos = waistCF.Position
 
 	-- Shift down slightly
 	waistCF -= (waistCF.UpVector * blanketSizeZ * 0.1)
 
-	DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
-	DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
+	if USE_DEBUG and DebugService then
+		DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
+		DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
+		DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
+
+		DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
+		DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
+		DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
+	end
 
 	blanket.CFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
 	blanket.Anchored = true -- Ensure position is locked
@@ -174,5 +180,3 @@ function SleepBlanketService.removeBlanket(player)
 end
 
 return SleepBlanketService
-
--- test
