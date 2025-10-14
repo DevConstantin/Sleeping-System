@@ -85,58 +85,67 @@ end
 
 -- Calculate the appropriate CFrame and size for a blanket based on character position and size
 function SleepBlanketService.getBlanketCFrameAndSize(char: Model): (CFrame, Vector3)
-	local torso = char:FindFirstChild("UpperTorso")
-	local lowerTorso = char:FindFirstChild("LowerTorso")
-	if not torso or not lowerTorso then
-		warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
-		return
+	local targetCFrame, targetSize
+	local success, result = pcall(function()
+		local torso = char:FindFirstChild("UpperTorso")
+		local lowerTorso = char:FindFirstChild("LowerTorso")
+		if not torso or not lowerTorso then
+			warn("Missing UpperTorso/LowerTorso for", char, torso, lowerTorso)
+			return
+		end
+
+		local feetPos = getFeetPosition(char)
+		if not feetPos then
+			warn("Failed to get feet position for", char)
+			return
+		end
+
+		local waistAtt = lowerTorso:FindFirstChild("WaistCenterAttachment")
+		local waistCF = waistAtt and waistAtt.WorldCFrame
+		local neckAtt = torso:FindFirstChild("NeckAttachment")
+		local neckPos = neckAtt and neckAtt.WorldCFrame.Position
+		if not waistCF or not neckPos then
+			warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
+			return
+		end
+
+		-- Scale based on character size
+		local baseLength = (feetPos - neckPos).Magnitude
+		local FEET_EXTRA_PERCENT = 0.25 -- 25% extra length past feet
+		local ARM_WIDTH_MULTIPLIER = 1.4 -- 40% wider for arms
+
+		local blanketSizeZ = baseLength * (1 + FEET_EXTRA_PERCENT)
+		local extents = char:GetExtentsSize()
+		local ySize = torso.Size.Y + 0.1
+		targetSize = Vector3.new(
+			extents.X * ARM_WIDTH_MULTIPLIER, -- Wider for arms
+			ySize + ySize * 0.1,
+			blanketSizeZ -- Longer for feet
+		)
+
+		local previousPos = waistCF.Position
+
+		-- Shift down slightly
+		waistCF -= (waistCF.UpVector * blanketSizeZ * 0.1)
+
+		if USE_DEBUG and DebugService then
+			DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
+			DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
+			DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
+
+			DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
+			DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
+			DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
+		end
+
+		local targetCFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
+	end)
+
+	if not success then
+		warn("Error calculating blanket position for", char, result)
+		return nil, nil
 	end
 
-	local feetPos = getFeetPosition(char)
-	if not feetPos then
-		warn("Failed to get feet position for", char)
-		return
-	end
-
-	local waistAtt = lowerTorso:FindFirstChild("WaistCenterAttachment")
-	local waistCF = waistAtt and waistAtt.WorldCFrame
-	local neckAtt = torso:FindFirstChild("NeckAttachment")
-	local neckPos = neckAtt and neckAtt.WorldCFrame.Position
-	if not waistCF or not neckPos then
-		warn("Missing NeckAttachment/WaistCenterAttachment for", char, waistCF, neckPos)
-		return
-	end
-
-	-- Scale based on character size
-	local baseLength = (feetPos - neckPos).Magnitude
-	local FEET_EXTRA_PERCENT = 0.25 -- 25% extra length past feet
-	local ARM_WIDTH_MULTIPLIER = 1.4 -- 40% wider for arms
-
-	local blanketSizeZ = baseLength * (1 + FEET_EXTRA_PERCENT)
-	local extents = char:GetExtentsSize()
-	local ySize = torso.Size.Y + 0.1
-	local targetSize = Vector3.new(
-		extents.X * ARM_WIDTH_MULTIPLIER, -- Wider for arms
-		ySize + ySize * 0.1,
-		blanketSizeZ -- Longer for feet
-	)
-
-	local previousPos = waistCF.Position
-
-	-- Shift down slightly
-	waistCF -= (waistCF.UpVector * blanketSizeZ * 0.1)
-
-	if USE_DEBUG and DebugService then
-		DebugService:placeNode(waistCF.Position, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-		DebugService:placeNode(neckPos, Color3.new(1, 1, 1), nil, DEBUG_DELAY)
-		DebugService:connectPositions(feetPos, neckPos, Color3.new(0.490196, 0.254902, 1), 0.05, DEBUG_DELAY)
-
-		DebugService:placeNode(waistCF.Position, Color3.new(0.666667, 1, 1), nil, DEBUG_DELAY)
-		DebugService:connectPositions(previousPos, waistCF.Position, Color3.new(0.666667, 1, 1), 0.05, DEBUG_DELAY)
-		DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
-	end
-
-	local targetCFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
 	return targetCFrame, targetSize
 end
 
