@@ -65,6 +65,8 @@ local function loadAndPlayAnimation(sleepAnimId: string)
 
 	-- Clean up when animation stops
 	animTrack.Stopped:Once(function()
+		print("Animation has stopped.")
+
 		if activeAnimTrack == animTrack then -- Only clear if this is still the active track
 			activeAnimTrack = nil
 			activeAnimationId = nil

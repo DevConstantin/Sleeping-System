@@ -14,10 +14,33 @@ local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 local blanketTemplate = sleepConfig.BlanketMesh
 local blanketsFolder = workspace.Sleep_System_Blankets
 
--- // CONFIG
+--- // CONFIG
 local USE_DEBUG = sleepConfig:GetAttribute("UseDebugVisualization") or false
 local DEBUG_DELAY = 5
 local DEFAULT_BLANKET_COLOR = sleepConfig:GetAttribute("DefaultBlanketColor")
+
+--- // FUNCTIONS
+local function updateBlanketColor(player, blanket: BasePart)
+	-- Update blanket color from player's CharacterData with tween
+	local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
+
+	local characterData = player:FindFirstChild("CharacterData")
+	local blanketColorValue = characterData and characterData:FindFirstChild("blanket_Color")
+	if blanketColorValue then
+		-- Only use the saved color if it's not black (0,0,0) or nil
+		local savedColor = blanketColorValue.Value
+		if savedColor then
+			desiredColor = savedColor
+		end
+	end
+
+	-- Tween to the desired color
+	if blanket.Color ~= desiredColor then
+		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local tween = TweenService:Create(blanket, tweenInfo, { Color = desiredColor })
+		tween:Play()
+	end
+end
 
 -- Get position between the player's feet
 local function getFeetPosition(char: Model): Vector3
@@ -45,30 +68,23 @@ local function getFeetPosition(char: Model): Vector3
 	return feetPos
 end
 
-local function updateBlanketColor(player, blanket: BasePart)
-	-- Update blanket color from player's CharacterData with tween
-	local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
-
-	local characterData = player:FindFirstChild("CharacterData")
-	local blanketColorValue = characterData and characterData:FindFirstChild("blanket_Color")
-	if blanketColorValue then
-		-- Only use the saved color if it's not black (0,0,0) or nil
-		local savedColor = blanketColorValue.Value
-		if savedColor then
-			desiredColor = savedColor
-		end
+-- Function to get a blanket for the player, or create a new one if the player's blanket doesn't exist
+-- Should only be called on the client
+function SleepBlanketService.getBlanketMesh(player, addingBlanket: boolean?)
+	local userId = player.UserId
+	local blanket = blanketsFolder:FindFirstChild("Blanket_" .. tostring(userId))
+	if not blanket and addingBlanket then
+		blanket = blanketTemplate:Clone()
+		blanket.Name = "Blanket_" .. tostring(userId)
+		blanket.Anchored = true -- Ensure blanket is always anchored
+		-- placeBlanket(player.Character, blanket)
+		blanket.Parent = blanketsFolder
 	end
-
-	-- Tween to the desired color
-	if blanket.Color ~= desiredColor then
-		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-		local tween = TweenService:Create(blanket, tweenInfo, { Color = desiredColor })
-		tween:Play()
-	end
+	return blanket
 end
 
--- Function to place a blanket on a character, accounting for the character size and position
-local function placeBlanket(char: Model, blanket: BasePart)
+-- Calculate the appropriate CFrame and size for a blanket based on character position and size
+function SleepBlanketService.getBlanketCFrameAndSize(char: Model): (CFrame, Vector3)
 	local torso = char:FindFirstChild("UpperTorso")
 	local lowerTorso = char:FindFirstChild("LowerTorso")
 	if not torso or not lowerTorso then
@@ -99,12 +115,11 @@ local function placeBlanket(char: Model, blanket: BasePart)
 	local blanketSizeZ = baseLength * (1 + FEET_EXTRA_PERCENT)
 	local extents = char:GetExtentsSize()
 	local ySize = torso.Size.Y + 0.1
-	blanket.Size = Vector3.new(
+	local targetSize = Vector3.new(
 		extents.X * ARM_WIDTH_MULTIPLIER, -- Wider for arms
 		ySize + ySize * 0.1,
 		blanketSizeZ -- Longer for feet
 	)
-
 
 	local previousPos = waistCF.Position
 
@@ -121,22 +136,8 @@ local function placeBlanket(char: Model, blanket: BasePart)
 		DebugService:placeNode(waistCF.Position, Color3.new(0, 1, 0.835294), nil, DEBUG_DELAY)
 	end
 
-	blanket.CFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
-	blanket.Anchored = true -- Ensure position is locked
-end
-
--- Function to get a blanket for the player, or create a new one if the player's blanket doesn't exist
-function SleepBlanketService.getBlanketMesh(player, addingBlanket: boolean?)
-	local userId = player.UserId
-	local blanket = blanketsFolder:FindFirstChild("Blanket_" .. tostring(userId))
-	if not blanket and addingBlanket then
-		blanket = blanketTemplate:Clone()
-		blanket.Name = "Blanket_" .. tostring(userId)
-		blanket.Anchored = true -- Ensure blanket is always anchored
-		-- placeBlanket(player.Character, blanket)
-		blanket.Parent = blanketsFolder
-	end
-	return blanket
+	local targetCFrame = waistCF * CFrame.Angles(math.rad(-90), 0, 0)
+	return targetCFrame, targetSize
 end
 
 -- Update the player blanket's color & position
@@ -162,13 +163,14 @@ function SleepBlanketService.updateBlanket(player)
 	-- Update blanket color only (no position updates)
 	updateBlanketColor(player, blanket)
 
-	-- Get sleeping side from CHARACTER, not player
-	-- Update blanket position, if sleeping on the back
-	local sleepingSide = char:GetAttribute("SleepingSide")
-	local isSideSleeping = sleepingSide == "Left" or sleepingSide == "Right"
-	print("Current sleeping side:", sleepingSide, "Side sleeping?", isSideSleeping)
-	if not isSideSleeping then
-		placeBlanket(char, blanket)
+	local targetCframe = char:GetAttribute("BlanketCFrame")
+	local targetSize = char:GetAttribute("BlanketSize")
+	if targetCframe and targetSize then
+		-- Update blanket position & size
+		blanket.Size = targetSize
+		blanket.CFrame = targetCframe
+	else
+		warn("Blanket position/size not set for", player, "Cannot update blanket position")
 	end
 end
 

@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 --- // OBJECTS
-local BlanketService = require(script.Parent.SleepBlanketService)
+local BlanketService = require(ReplicatedStorage.RSModules.SleepBlanketService)
 local SleepAnimationService = require(script.Parent.SleepAnimationService)
 local localPlayer = Players.LocalPlayer
 

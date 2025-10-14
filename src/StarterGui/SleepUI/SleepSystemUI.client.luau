@@ -207,6 +207,12 @@ local function changeSleepingPosition(sleepPosition)
 		return
 	end
 
+	-- Ensure blanket position is set by the server before allowing position changes
+	if not char:GetAttribute("BlanketCFrame") then
+		warn("Blanket position not yet set; cannot change sleeping position")
+		return
+	end
+
 	if not table.find(validSleepingPositions, sleepPosition) then
 		warn("Invalid sleeping position:", sleepPosition)
 		return

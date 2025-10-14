@@ -21,26 +21,25 @@ REQUIRED STRUCTURE:
 
 ReplicatedStorage/
 ├── RSModules/
+    ├── SleepBlanketService         [ModuleScript - Blanket management, includes code for calculating where a blanket should go]
 │   └── DebugService                [ModuleScript - Debug visualization helper]
 ├── RemoteEvents/                   [Folder]
 │   └── UpdateBlanketColor          [RemoteEvent - Syncs blanket color to server]
 ├── Configurations/                 [Folder]
 │   └── SleepingConfig              [Configuration object with attributes, also contains BlanketMesh]
 └── CharacterDataTemplate           [Folder - Template for player data]
-    └── blanket_Color               [Color3Value - Stores blanket color]
+    └── blanket_Color               [Color3Value - Stores blanket color. You may want to set the default blanket color here]
 
 Workspace/
 └── Sleep_System_Blankets           [Folder - Contains active blankets]
 
 ServerScriptService/
 └── SleepSystemServerScript/        [Script]
-    ├── init.server.luau            [Main server logic]
-    └── Documentation.server.luau   [This file]
+    └── Documentation               [This file]
 
 StarterGui/
 └── SleepUI/                        [ScreenGui]
     ├── SleepScriptClient/          [LocalScript - Main client logic]
-    │   ├── SleepBlanketService     [ModuleScript - Blanket management]
     │   └── SleepAnimationService   [ModuleScript - Animation handling]
     ├── SleepSystemUI               [LocalScript - UI management]
     ├── TweenFrame                  [Frame - Main UI container]
@@ -56,7 +55,7 @@ SoundService/
     └── RBLX UI Back (SFX)          [Sound - Confirm sound]
 
 ═══════════════════════════════════════════════════════════════════════
-ANIMATION IDS (in SleepAnimationService.luau):
+ANIMATION IDS (in SleepAnimationService):
 
 Replace these with your own animation IDs:
 - Back:  rbxassetid://131934871886139
