@@ -17,6 +17,8 @@ local charDataTemplate = ReplicatedStorage.CharacterDataTemplate
 
 -- // CONFIG
 local SLEEP_EXPERIENCE_ID = 85240340440833
+local BLANKET_STABILIZE_INTERVAL = 0.3 -- Time to wait between blanket position samples
+local BLANKET_STABILIZE_COUNT = 5 -- Max number of position samples to take before settling
 
 local sleepConnections = {}
 
@@ -66,7 +68,7 @@ local function sleepAttributeChanged(player)
 	print("Calculated blanket CFrame:", blanketCFrame, "Size:", blanketSize)
 	-- Wait until blanket position stabilizes before tracking
 	repeat
-		task.wait(0.3)
+		task.wait(BLANKET_STABILIZE_INTERVAL)
 		blanketCFrame, blanketSize = BlanketService.getBlanketCFrameAndSize(character)
 		if not blanketCFrame or not blanketSize then
 			blanketPositions = nil
@@ -80,7 +82,7 @@ local function sleepAttributeChanged(player)
 				matchingPositions += 1
 			end
 		end
-	until (#blanketPositions >= 5 and matchingPositions >= 3) or not player:GetAttribute("Sleeping")
+	until (#blanketPositions >= BLANKET_STABILIZE_COUNT and matchingPositions >= 3) or not player:GetAttribute("Sleeping")
 	blanketPositions = nil -- Clear memory
 
 	if player:GetAttribute("Sleeping") and blanketCFrame and blanketSize then

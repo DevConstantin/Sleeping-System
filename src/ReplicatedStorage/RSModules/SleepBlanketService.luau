@@ -174,12 +174,19 @@ function SleepBlanketService.updateBlanket(player)
 
 	local targetCframe = char:GetAttribute("BlanketCFrame")
 	local targetSize = char:GetAttribute("BlanketSize")
-	if targetCframe and targetSize then
-		-- Update blanket position & size
-		blanket.Size = targetSize
-		blanket.CFrame = targetCframe
-	else
+	if targetCframe == nil or targetSize == nil then
+		-- Blanket position not yet set
 		warn("Blanket position/size not set for", player, "Cannot update blanket position")
+		return
+	end
+
+	-- Update blanket position & size if changed
+	if blanket.CFrame ~= targetCframe then
+		blanket.CFrame = targetCframe
+	end
+
+	if blanket.Size ~= targetSize then
+		blanket.Size = targetSize
 	end
 end
 

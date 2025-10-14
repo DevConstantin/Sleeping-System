@@ -15,6 +15,11 @@ FEATURES:
 - Smooth UI transitions with position-based animations
 - Client-side blanket rendering for performance
 
+INTEGRATION:
+- Customization-related character changes must be blocked while sleeping (to prevent blanket size issues)
+- Upload and set your own animations in SleepAnimationService
+- Add blanket_Color Value3 to CharacterDataTemplate for persistent color data
+
 ═══════════════════════════════════════════════════════════════════════
 
 REQUIRED STRUCTURE:
