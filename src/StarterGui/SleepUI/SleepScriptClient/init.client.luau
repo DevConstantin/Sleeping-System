@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 --- // OBJECTS
-local BlanketService = require(script.Parent.SleepBlanketService)
+local BlanketService = require(ReplicatedStorage.RSModules.SleepBlanketService)
 local SleepAnimationService = require(script.Parent.SleepAnimationService)
 local localPlayer = Players.LocalPlayer
 
@@ -20,14 +20,12 @@ local USE_SNORES = sleepConfig:GetAttribute("Snores")
 local USE_FX = sleepConfig:GetAttribute("ZZZ_Effect")
 local DEFAULT_SNORE_THRESHOLD = sleepConfig:GetAttribute("SnoreOdds")
 local SLEEP_FX_RANGE = sleepConfig:GetAttribute("SleepFXRange")
-local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
 local BLANKET_UPDATE_DELAY = 0.1
 
 --- // VARIABLES
 local sleepAnimTrack = nil
 local t, interval = 0, 3
 local addingFX = {}
-local lastSideSwitchTime = 0
 --- // FUNCTIONS
 
 local function shouldSnore(userId: number): boolean
@@ -97,29 +95,18 @@ end
 local function onCharacterAdded(char)
 	local sleepingSideChanged
 	sleepingSideChanged = char:GetAttributeChangedSignal("SleepingSide"):Connect(function()
-		if not localPlayer:GetAttribute("Sleeping") then
-			return
-		end
-		-- Apply debounce to prevent spam
-		local currentTime = os.clock()
-		if currentTime - lastSideSwitchTime < SIDE_SWITCH_DELAY then
-			return
-		end
-		lastSideSwitchTime = currentTime
-
-		-- Get the current sleeping side
+		-- ALWAYS update animation when sleeping side changes, even if not sleeping
+		-- This ensures animation stops when player exits bed while on Left/Right
 		local sleepingSide = char:GetAttribute("SleepingSide")
 
-		-- If switching to Back position, update immediately (no rotation needed)
+		-- If switching to Back position or stopping sleep, update immediately
 		-- Otherwise, add a delay to let the animation complete
-		if sleepingSide == "Back" then
+		if sleepingSide == "Back" or sleepingSide == nil or not localPlayer:GetAttribute("Sleeping") then
 			SleepAnimationService.updateSleepAnimation()
 		else
 			-- Delay animation update to prevent blanket from updating mid-rotation
 			task.delay(BLANKET_UPDATE_DELAY, function()
-				if localPlayer:GetAttribute("Sleeping") then
-					SleepAnimationService.updateSleepAnimation()
-				end
+				SleepAnimationService.updateSleepAnimation()
 			end)
 		end
 	end)
@@ -168,11 +155,19 @@ local function updateSleepStates()
 end
 
 --- // MAIN
-localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(SleepAnimationService.updateSleepAnimation)
+-- Update animation when sleeping state changes
+localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(function()
+	SleepAnimationService.updateSleepAnimation()
+	-- Also reset sleeping side when stopping sleep
+	if not localPlayer:GetAttribute("Sleeping") and localPlayer.Character then
+		localPlayer.Character:SetAttribute("SleepingSide", nil)
+	end
+end)
 
 localPlayer.CharacterAdded:Connect(onCharacterAdded)
 if localPlayer.Character then
 	onCharacterAdded(localPlayer.Character)
 end
 
+Players.PlayerRemoving:Connect(BlanketService.removeBlanket)
 RunService.Heartbeat:Connect(updateSleepStates)

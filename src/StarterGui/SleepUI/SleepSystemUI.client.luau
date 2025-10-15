@@ -10,23 +10,22 @@ local TweenService = game:GetService("TweenService")
 local localPlayer = Players.LocalPlayer
 
 -- UI objects
-local UI = script.Parent.TweenFrame1
+local UI = script.Parent.TweenFrame
 local wheelOutput = script.Parent.WheelColor
 local mainFrame = UI.MainFrame
+local colorFrame = UI.ColorFrame
 local closeButton = mainFrame.CloseButton
-local confirmColor = script.Parent.TweenFrame2.Confirm
+local confirmColor = colorFrame.Confirm
 local wheelOpen = mainFrame.ColorButton
-local positionSelectionFrame = UI.MainFrame.PositionSelectionFrame
+local positionSelectionFrame = mainFrame.PositionSelectionFrame
 local positionBack = positionSelectionFrame.Back
 local positionLeft = positionSelectionFrame.Left
 local positionRight = positionSelectionFrame.Right
-local TweenFrame1 = UI
-local TweenFrame2 = script.Parent.TweenFrame2
 local openButton = script.Parent.OpenButton
 
 -- Remote events
-local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-local updateBlanketColorEvent = remoteEvents:WaitForChild("UpdateBlanketColor")
+local sleepSystemEvents = ReplicatedStorage.RemoteEvents.SleepingSystem
+local updateBlanketColorEvent = sleepSystemEvents.UpdateBlanketColor
 
 -- UI sounds
 local uiSounds = SoundService:WaitForChild("UI_Sounds")
@@ -34,30 +33,34 @@ local clickSound = uiSounds:WaitForChild("RBLX UI Hover 02 (SFX)")
 local hoverSound = uiSounds:WaitForChild("RBLX UI Hover 03 (SFX)")
 local confirmSound = uiSounds:WaitForChild("RBLX UI Back (SFX)")
 
+--- // CONFIG
+local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
+local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
+
 --- // TWEEN SETTINGS
-local TWEEN_INFO_OPEN = TweenInfo.new(1.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-local TWEEN_INFO_CLOSE = TweenInfo.new(1.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+local TWEEN_INFO = TweenInfo.new(1.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
---- // STATE TRACKING
-local originalPositions = {}
-local hiddenPositions = {}
-local currentTweens = {}
-local openButtonOriginalPosition = nil
-local validSleepingPositions = {"Back", "Left", "Right"}
-
+--- // STATE
+local originalPosition = nil
+local hiddenPosition = nil
+local openButtonOriginalPos = nil
+local openButtonHiddenPos = nil
+local colorFrameOriginalSize = nil
+local validSleepingPositions = { "Back", "Left", "Right" }
+local lastSideSwitchTime = 0
 
 --- // FUNCTIONS
 -----------------------------------------------------------------------------------------------
 --------------------------------------- SOUND FUNCTIONS ---------------------------------------
 -----------------------------------------------------------------------------------------------
 local function playHoverSound()
-	if hoverSound and hoverSound.Parent then 
+	if hoverSound and hoverSound.Parent then
 		hoverSound:Play()
 	end
 end
 
 local function playUISound(sound)
-	if sound and sound.Parent then 
+	if sound and sound.Parent then
 		sound:Play()
 	end
 end
@@ -69,31 +72,33 @@ end
 -----------------------------------------------------------------------------------------------
 --------------------------------------- TWEEN FUNCTIONS ---------------------------------------
 -----------------------------------------------------------------------------------------------
+local function initializePositions()
+	originalPosition = UI.Position
+	openButtonOriginalPos = openButton.Position
+	colorFrameOriginalSize = colorFrame.Size
 
-local function initializePositions() 
-    originalPositions.TweenFrame1 = TweenFrame1.Position
-    openButtonOriginalPosition = openButton.Position
-
-   	hiddenPositions.TweenFrame1 = UDim2.new(
-		originalPositions.TweenFrame1.X.Scale + 1.5,
-		originalPositions.TweenFrame1.X.Offset,
-		originalPositions.TweenFrame1.Y.Scale,
-		originalPositions.TweenFrame1.Y.Offset
+	hiddenPosition = UDim2.new(
+		originalPosition.X.Scale + 1.5,
+		originalPosition.X.Offset,
+		originalPosition.Y.Scale,
+		originalPosition.Y.Offset
 	)
 
-    	hiddenPositions.OpenButton = UDim2.new(
-		openButtonOriginalPosition.X.Scale + 1.2,
-		openButtonOriginalPosition.X.Offset,
-		openButtonOriginalPosition.Y.Scale,
-		openButtonOriginalPosition.Y.Offset
+	openButtonHiddenPos = UDim2.new(
+		openButtonOriginalPos.X.Scale + 1.2,
+		openButtonOriginalPos.X.Offset,
+		openButtonOriginalPos.Y.Scale,
+		openButtonOriginalPos.Y.Offset
 	)
 
-    TweenFrame1.Position = hiddenPositions.TweenFrame1
-	TweenFrame1.Visible = false
-	TweenFrame2.Visible = false
-	openButton.Position = hiddenPositions.OpenButton
+	UI.Position = hiddenPosition
+	UI.Visible = false
+	colorFrame.Visible = false
+	colorFrame.Size = UDim2.new(0, 0, 0, 0)
+	openButton.Position = openButtonHiddenPos
 	openButton.Visible = false
 
+	-- Setup hover sounds
 	setupButtonHoverSounds(closeButton)
 	setupButtonHoverSounds(wheelOpen)
 	setupButtonHoverSounds(confirmColor)
@@ -103,101 +108,84 @@ local function initializePositions()
 	setupButtonHoverSounds(openButton)
 end
 
-local function stopCurrentTween(frame)
-    if currentTweens[frame] then
-        currentTweens[frame]:Cancel()
-        currentTweens[frame] = nil
-    end
-end
-
-local function tweenFrameIn(frame, frameName)
-	stopCurrentTween(frameName)
-	frame.Visible = true
-	local tween = TweenService:Create(frame, TWEEN_INFO_OPEN, {Position = originalPositions[frameName]})
-	currentTweens[frameName] = tween
-	tween:Play()
-	return tween
-end
-
-local function tweenFrameOut(frame, frameName, callback)
-	stopCurrentTween(frameName)
-	local tween = TweenService:Create(frame, TWEEN_INFO_CLOSE, {Position = hiddenPositions[frameName]})
-	currentTweens[frameName] = tween
-	tween:Play()
-	tween.Completed:Connect(function()
-		frame.Visible = false
-		currentTweens[frameName] = nil
-		if callback then callback() end
-	end)
-	return tween
-end
-
-local function tweenOpenButtonIn()
-	stopCurrentTween("OpenButton")
-	openButton.Visible = true
-	local tween = TweenService:Create(openButton, TWEEN_INFO_OPEN, {Position = openButtonOriginalPosition})
-	currentTweens.OpenButton = tween
-	tween:Play()
-	return tween
-end
-
-local function tweenOpenButtonOut(callback)
-	stopCurrentTween("OpenButton")
-	local tween = TweenService:Create(openButton, TWEEN_INFO_CLOSE, {Position = hiddenPositions.OpenButton})
-	currentTweens.OpenButton = tween
-	tween:Play()
-	tween.Completed:Connect(function()
-		openButton.Visible = false
-		currentTweens.OpenButton = nil
-		if callback then callback() end
-	end)
-	return tween
-end
-
 ------------------------------------------------------------------------------------------------------
 -------------------------------------- UI INTERACTION FUNCTIONS --------------------------------------
 ------------------------------------------------------------------------------------------------------
-
 local function openColorWheel()
+	if colorFrame.Visible then
+		return -- Already open
+	end
+
 	playUISound(clickSound)
-	TweenFrame2.Visible = true
+	colorFrame.Size = colorFrameOriginalSize
+	colorFrame.Visible = true
 end
 
 local function closeColorWheel()
-	playUISound(clickSound)
-	TweenFrame2.Visible = false
-end
-
-local function openSleepUI()
-	playUISound(clickSound)
-	tweenFrameIn(TweenFrame1, "TweenFrame1")
-	tweenOpenButtonOut()
-end
-
-local function closeSleepUI()
-	playUISound(clickSound)
-	tweenFrameOut(TweenFrame1, "TweenFrame1")
-
-	if TweenFrame2.Visible then
-		closeColorWheel()
+	if not colorFrame.Visible then
+		return -- Already closed
 	end
 
-	if localPlayer:GetAttribute("Sleeping") then
-		task.delay(0.3, function()
-			tweenOpenButtonIn()
-		end)
+	playUISound(clickSound)
+	colorFrame.Visible = false
+end
+
+local function showMainUI()
+	playUISound(clickSound)
+
+	-- Hide open button
+	openButton.Visible = false
+
+	-- Show and tween main UI
+	UI.Visible = true
+	local tween = TweenService:Create(UI, TWEEN_INFO, { Position = originalPosition })
+	tween:Play()
+end
+
+local function hideMainUI()
+	playUISound(clickSound)
+
+	-- Close color wheel if open
+	if colorFrame.Visible then
+		colorFrame.Size = UDim2.new(0, 0, 0, 0)
+		colorFrame.Visible = false
 	end
+
+	-- Tween main UI out
+	local tween = TweenService:Create(UI, TWEEN_INFO, { Position = hiddenPosition })
+	tween:Play()
+
+	tween.Completed:Once(function()
+		UI.Visible = false
+
+		-- Show open button if still sleeping
+		if localPlayer:GetAttribute("Sleeping") then
+			openButton.Visible = true
+			local buttonTween = TweenService:Create(openButton, TWEEN_INFO, { Position = openButtonOriginalPos })
+			buttonTween:Play()
+		end
+	end)
+end
+
+local function hideAllUI()
+	-- Immediately hide everything without tweening
+	UI.Visible = false
+	UI.Position = hiddenPosition
+
+	colorFrame.Visible = false
+	colorFrame.Size = UDim2.new(0, 0, 0, 0)
+
+	openButton.Visible = false
+	openButton.Position = openButtonHiddenPos
 end
 
 ------------------------------------------------------------------------------------------------
 -------------------------------------- SLEEPING FUNCTIONS --------------------------------------
 ------------------------------------------------------------------------------------------------
-
 local function confirmBlanketColor()
 	local newColor = wheelOutput.Value
-
 	if typeof(newColor) ~= "Color3" then
-		warn("Invalid color from wheel output")
+		--warn("Invalid color from wheel output")
 		return
 	end
 
@@ -207,18 +195,25 @@ local function confirmBlanketColor()
 end
 
 local function changeSleepingPosition(sleepPosition)
+	local currentTime = os.clock()
+	if currentTime - lastSideSwitchTime < SIDE_SWITCH_DELAY then
+		return
+	end
+	lastSideSwitchTime = currentTime
+
 	local char = localPlayer.Character
-	if not char then
+	if not char or not localPlayer:GetAttribute("Sleeping") then
+		return
+	end
+
+	-- Ensure blanket position is set by the server before allowing position changes
+	if not char:GetAttribute("BlanketCFrame") then
+		--warn("Blanket position not yet set; cannot change sleeping position")
 		return
 	end
 
 	if not table.find(validSleepingPositions, sleepPosition) then
-		warn("Invalid sleeping position:", sleepPosition)
-		return
-	end
-
-	if not localPlayer:GetAttribute("Sleeping") then
-		warn("Cannot change sleeping position - player is not sleeping")
+		--warn("Invalid sleeping position:", sleepPosition)
 		return
 	end
 
@@ -230,18 +225,17 @@ local function onSleepingChanged()
 	local sleeping = localPlayer:GetAttribute("Sleeping")
 
 	if sleeping then
-		openSleepUI()
+		-- Player started sleeping - show main UI
+		showMainUI()
 	else
-		closeSleepUI()
-		tweenOpenButtonOut()
+		-- Player stopped sleeping - hide everything
+		hideAllUI()
 	end
 end
 
 --- // MAIN
-
--- Event setup
 wheelOpen.MouseButton1Click:Connect(function()
-	if TweenFrame2.Visible then
+	if colorFrame.Visible then
 		closeColorWheel()
 	else
 		openColorWheel()
@@ -262,13 +256,12 @@ end)
 
 openButton.MouseButton1Click:Connect(function()
 	if localPlayer:GetAttribute("Sleeping") then
-		openSleepUI()
+		showMainUI()
 	end
 end)
 
-closeButton.MouseButton1Click:Connect(closeSleepUI)
+closeButton.MouseButton1Click:Connect(hideMainUI)
 localPlayer:GetAttributeChangedSignal("Sleeping"):Connect(onSleepingChanged)
 confirmColor.MouseButton1Click:Connect(confirmBlanketColor)
 
--- Initialization
 initializePositions()
