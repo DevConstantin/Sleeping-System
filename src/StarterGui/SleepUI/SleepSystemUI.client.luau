@@ -10,10 +10,11 @@ local TweenService = game:GetService("TweenService")
 local localPlayer = Players.LocalPlayer
 
 -- UI objects
-local UI = script.Parent.TweenFrame
-local wheelOutput = script.Parent.WheelColor
-local mainFrame = UI.MainFrame
-local colorFrame = UI.ColorFrame
+local SleepUI: ScreenGui = script.Parent
+local MainTweenFrame: Frame = SleepUI.TweenFrame
+local wheelOutput = SleepUI.WheelColor
+local mainFrame = MainTweenFrame.MainFrame
+local colorFrame = MainTweenFrame.ColorFrame
 local closeButton = mainFrame.CloseButton
 local confirmColor = colorFrame.Confirm
 local wheelOpen = mainFrame.ColorButton
@@ -73,7 +74,7 @@ end
 --------------------------------------- TWEEN FUNCTIONS ---------------------------------------
 -----------------------------------------------------------------------------------------------
 local function initializePositions()
-	originalPosition = UI.Position
+	originalPosition = MainTweenFrame.Position
 	openButtonOriginalPos = openButton.Position
 	colorFrameOriginalSize = colorFrame.Size
 
@@ -91,8 +92,8 @@ local function initializePositions()
 		openButtonOriginalPos.Y.Offset
 	)
 
-	UI.Position = hiddenPosition
-	UI.Visible = false
+	MainTweenFrame.Position = hiddenPosition
+	MainTweenFrame.Visible = false
 	colorFrame.Visible = false
 	colorFrame.Size = UDim2.new(0, 0, 0, 0)
 	openButton.Position = openButtonHiddenPos
@@ -131,14 +132,15 @@ local function closeColorWheel()
 end
 
 local function showMainUI()
+	SleepUI.Enabled = true
 	playUISound(clickSound)
 
 	-- Hide open button
 	openButton.Visible = false
 
 	-- Show and tween main UI
-	UI.Visible = true
-	local tween = TweenService:Create(UI, TWEEN_INFO, { Position = originalPosition })
+	MainTweenFrame.Visible = true
+	local tween = TweenService:Create(MainTweenFrame, TWEEN_INFO, { Position = originalPosition })
 	tween:Play()
 end
 
@@ -152,25 +154,20 @@ local function hideMainUI()
 	end
 
 	-- Tween main UI out
-	local tween = TweenService:Create(UI, TWEEN_INFO, { Position = hiddenPosition })
+	local tween = TweenService:Create(MainTweenFrame, TWEEN_INFO, { Position = hiddenPosition })
 	tween:Play()
 
-	tween.Completed:Once(function()
-		UI.Visible = false
-
-		-- Show open button if still sleeping
-		if localPlayer:GetAttribute("Sleeping") then
-			openButton.Visible = true
-			local buttonTween = TweenService:Create(openButton, TWEEN_INFO, { Position = openButtonOriginalPos })
-			buttonTween:Play()
-		end
-	end)
+	if localPlayer:GetAttribute("Sleeping") then
+		openButton.Visible = true
+		local buttonTween = TweenService:Create(openButton, TWEEN_INFO, { Position = openButtonOriginalPos })
+		buttonTween:Play()
+	end
 end
 
 local function hideAllUI()
 	-- Immediately hide everything without tweening
-	UI.Visible = false
-	UI.Position = hiddenPosition
+	MainTweenFrame.Visible = false
+	MainTweenFrame.Position = hiddenPosition
 
 	colorFrame.Visible = false
 	colorFrame.Size = UDim2.new(0, 0, 0, 0)
