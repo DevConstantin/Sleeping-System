@@ -18,9 +18,9 @@ local localPlayer = Players.LocalPlayer
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 
 local ANIM_IDS = {
-	Back = "rbxassetid://131934871886139",
-	Left = "rbxassetid://72820421782942", -- Fixed: Removed extra space
-	Right = "rbxassetid://133771894405396", -- Fixed: Removed extra space
+	Back = "rbxassetid://125086013362856",
+	Left = "rbxassetid://138119398121379",
+	Right = "rbxassetid://75579541303045",
 }
 
 --- // VARIABLES
