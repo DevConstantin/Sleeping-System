@@ -20,17 +20,20 @@ local DEBUG_DELAY = 5
 local DEFAULT_BLANKET_COLOR = sleepConfig:GetAttribute("DefaultBlanketColor")
 
 --- // FUNCTIONS
-local function updateBlanketColor(player, blanket: BasePart)
+function SleepBlanketService.updateBlanketColor(player, blanket: BasePart, newColor: Color3?)
 	-- Update blanket color from player's CharacterData with tween
 	local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
-
-	local characterData = player:FindFirstChild("CharacterData")
-	local blanketColorValue = characterData and characterData:FindFirstChild("blanket_Color")
-	if blanketColorValue then
-		-- Only use the saved color if it's not black (0,0,0) or nil
-		local savedColor = blanketColorValue.Value
-		if savedColor then
-			desiredColor = savedColor
+	if newColor then
+		desiredColor = newColor
+	else
+		local characterData = player:FindFirstChild("CharacterData")
+		local blanketColorValue = characterData and characterData:FindFirstChild("blanket_Color")
+		if blanketColorValue then
+			-- Only use the saved color if it's not black (0,0,0) or nil
+			local savedColor = blanketColorValue.Value
+			if savedColor then
+				desiredColor = savedColor
+			end
 		end
 	end
 
@@ -70,7 +73,8 @@ end
 
 -- Function to get a blanket for the player, or create a new one if the player's blanket doesn't exist
 -- Should only be called on the client
-function SleepBlanketService.getBlanketMesh(player, addingBlanket: boolean?)
+-- @param addingBlanket: boolean? - Whether to create the blanket if it doesn't exist
+function SleepBlanketService.getBlanketMesh(player, addingBlanket: boolean?): BasePart?
 	local userId = player.UserId
 	local blanket = blanketsFolder:FindFirstChild("Blanket_" .. tostring(userId))
 	if not blanket and addingBlanket then
@@ -170,7 +174,7 @@ function SleepBlanketService.updateBlanket(player)
 	local blanket = SleepBlanketService.getBlanketMesh(player, true)
 
 	-- Update blanket color only (no position updates)
-	updateBlanketColor(player, blanket)
+	SleepBlanketService.updateBlanketColor(player, blanket)
 
 	local targetCframe = char:GetAttribute("BlanketCFrame")
 	local targetSize = char:GetAttribute("BlanketSize")

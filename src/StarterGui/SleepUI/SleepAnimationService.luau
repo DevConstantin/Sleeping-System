@@ -17,11 +17,22 @@ local localPlayer = Players.LocalPlayer
 --- // CONFIG
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 
-local ANIM_IDS = {
-	Back = "rbxassetid://125086013362856",
-	Left = "rbxassetid://138119398121379",
-	Right = "rbxassetid://75579541303045",
-}
+local ANIM_IDS
+if game.PlaceId == 85240340440833 then
+	-- Sleep Experience animations
+	ANIM_IDS = {
+		Back = "rbxassetid://131934871886139",
+		Left = "rbxassetid://72820421782942",
+		Right = "rbxassetid://133771894405396",
+	}
+else
+	-- Animation IDs for other places, WOS
+	ANIM_IDS = {
+		Back = "rbxassetid://125086013362856",
+		Left = "rbxassetid://138119398121379",
+		Right = "rbxassetid://75579541303045",
+	}
+end
 
 --- // VARIABLES
 local activeAnimTrack = nil

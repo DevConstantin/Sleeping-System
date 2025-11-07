@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 
 --- // OBJECTS
 local localPlayer = Players.LocalPlayer
+local SleepBlanketService = require(ReplicatedStorage.RSModules.SleepBlanketService)
 
 -- UI objects
 local SleepUI: ScreenGui = script.Parent
@@ -37,6 +38,7 @@ local confirmSound = uiSounds:WaitForChild("RBLX UI Back (SFX)")
 --- // CONFIG
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
+local COLOR_LERP_FACTOR = 0.5 -- How much to darken selected colors
 
 --- // TWEEN SETTINGS
 local TWEEN_INFO = TweenInfo.new(1.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -186,7 +188,13 @@ local function confirmBlanketColor()
 		return
 	end
 
+	newColor = newColor:Lerp(Color3.new(0, 0, 0), COLOR_LERP_FACTOR) -- Darken the color for more muted & realistic look
 	playUISound(confirmSound)
+
+	local blanket = SleepBlanketService.getBlanketMesh(localPlayer, false)
+	if blanket then
+		SleepBlanketService.updateBlanketColor(localPlayer, blanket, newColor)
+	end
 	updateBlanketColorEvent:FireServer(newColor)
 	closeColorWheel()
 end
