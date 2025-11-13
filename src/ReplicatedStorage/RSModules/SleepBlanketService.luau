@@ -24,6 +24,9 @@ local ARM_WIDTH_MULTIPLIER = 1.4 -- wider for arms
 --- // FUNCTIONS
 function SleepBlanketService.updateBlanketColor(player, blanket: BasePart, newColor: Color3?)
 	-- Update blanket color from player's CharacterData with tween
+
+	-- Get desired color
+	-- If newColor is provided, use that. Otherwise, get from saved data
 	local desiredColor = DEFAULT_BLANKET_COLOR -- Start with default
 	if newColor then
 		desiredColor = newColor
