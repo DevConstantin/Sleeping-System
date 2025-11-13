@@ -18,6 +18,8 @@ local blanketsFolder = workspace.Sleep_System_Blankets
 local USE_DEBUG = sleepConfig:GetAttribute("UseDebugVisualization") or false
 local DEBUG_DELAY = 5
 local DEFAULT_BLANKET_COLOR = sleepConfig:GetAttribute("DefaultBlanketColor")
+local LENGTH_MULTIPLIER = 1.4 -- extra length past feet
+local ARM_WIDTH_MULTIPLIER = 1.4 -- wider for arms
 
 --- // FUNCTIONS
 function SleepBlanketService.updateBlanketColor(player, blanket: BasePart, newColor: Color3?)
@@ -115,10 +117,7 @@ function SleepBlanketService.getBlanketCFrameAndSize(char: Model): (CFrame, Vect
 
 		-- Scale based on character size
 		local baseLength = (feetPos - neckPos).Magnitude
-		local FEET_EXTRA_PERCENT = 0.25 -- 25% extra length past feet
-		local ARM_WIDTH_MULTIPLIER = 1.4 -- 40% wider for arms
-
-		local blanketSizeZ = baseLength * (1 + FEET_EXTRA_PERCENT)
+		local blanketSizeZ = baseLength * LENGTH_MULTIPLIER
 		local extents = char:GetExtentsSize()
 		local ySize = torso.Size.Y + 0.1
 		targetSize = Vector3.new(
@@ -186,7 +185,7 @@ function SleepBlanketService.updateBlanket(player)
 
 	-- Update blanket position & size if changed
 	if blanket.CFrame ~= targetCframe then
-		blanket.CFrame = targetCframe
+		blanket:PivotTo(targetCframe)
 	end
 
 	if blanket.Size ~= targetSize then
