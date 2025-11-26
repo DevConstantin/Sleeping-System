@@ -38,7 +38,7 @@ local confirmSound = uiSounds:WaitForChild("RBLX UI Back (SFX)")
 --- // CONFIG
 local sleepConfig = ReplicatedStorage.Configurations.SleepingConfig
 local SIDE_SWITCH_DELAY = sleepConfig:GetAttribute("SideSwitchDelay") or 1
-local COLOR_LERP_FACTOR = 0.5 -- How much to darken selected colors
+local COLOR_LERP_FACTOR = 0.35 -- How much to darken selected colors (higher value -> darker)
 
 --- // TWEEN SETTINGS
 local TWEEN_INFO = TweenInfo.new(1.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
